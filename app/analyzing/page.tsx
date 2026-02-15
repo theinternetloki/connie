@@ -51,14 +51,25 @@ export default function AnalyzingPage() {
         });
 
         if (!response.ok) {
-          throw new Error("Analysis failed");
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.error || "Analysis failed";
+          
+          // Handle specific error cases
+          if (errorMessage.includes("FUNCTION_PAYLOAD_TOO_LARGE") || 
+              errorMessage.includes("payload") || 
+              errorMessage.includes("too large")) {
+            throw new Error("Photos are too large. Please try capturing fewer photos or lower resolution images.");
+          }
+          
+          throw new Error(errorMessage);
         }
 
         const { inspectionId } = await response.json();
         router.push(`/report/${inspectionId}`);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Analysis error:", error);
-        // Handle error - maybe show error page
+        // Show user-friendly error message
+        alert(error.message || "Failed to analyze photos. Please try again.");
         router.push("/vehicle-info");
       }
     };

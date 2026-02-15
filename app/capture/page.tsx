@@ -13,6 +13,7 @@ import {
   PhotoStation as PhotoStationType,
 } from "@/lib/types";
 import { ArrowRight, ArrowLeft } from "lucide-react";
+import { resizeImage } from "@/lib/utils";
 
 const PHOTO_STATIONS: PhotoStationConfig[] = [
   {
@@ -160,11 +161,24 @@ export default function CapturePage() {
         ...damagePhotos.map((p) => ({ file: p.file, station: "damage_closeup" as PhotoStationType })),
       ];
 
-      // Convert to base64 for API
+      // Convert to base64 for API (with compression to reduce payload size)
+      // Compress to max 1200px width to stay under Vercel's 4.5MB limit
       const photoData = await Promise.all(
         allPhotos.map(async (p) => {
-          const base64 = await fileToBase64(p.file);
-          return { base64, station: p.station };
+          try {
+            // Resize and compress image to max 1200px width (reduces file size significantly)
+            const base64 = await resizeImage(p.file, 1200);
+            return { base64, station: p.station };
+          } catch (error) {
+            console.error(`Error compressing photo for station ${p.station}:`, error);
+            // Fallback to original file if compression fails
+            const reader = new FileReader();
+            return new Promise((resolve, reject) => {
+              reader.onload = () => resolve({ base64: reader.result as string, station: p.station });
+              reader.onerror = reject;
+              reader.readAsDataURL(p.file);
+            });
+          }
         })
       );
 
@@ -184,14 +198,6 @@ export default function CapturePage() {
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
 
   const currentStation = PHOTO_STATIONS[currentStationIndex];
   const currentPhoto = photos.find(
@@ -264,11 +270,11 @@ export default function CapturePage() {
 
         <Button
           onClick={() => {
-            // Trigger damage photo capture
+            // Trigger damage photo capture (allows both camera and gallery)
             const input = document.createElement("input");
             input.type = "file";
             input.accept = "image/*";
-            input.capture = "environment";
+            // Removed capture="environment" to allow gallery selection
             input.onchange = (e) => {
               const file = (e.target as HTMLInputElement).files?.[0];
               if (file) handleDamagePhoto(file);

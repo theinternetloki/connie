@@ -104,9 +104,15 @@ export function PhotoStation({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Stop camera when selecting from gallery
+      stopCamera();
       const photoUrl = URL.createObjectURL(file);
       setPhoto(photoUrl);
       onCapture(file);
+    }
+    // Reset input so the same file can be selected again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -155,7 +161,6 @@ export function PhotoStation({
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleFileSelect}
               className="hidden"
             />

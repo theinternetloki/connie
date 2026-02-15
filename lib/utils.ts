@@ -30,7 +30,8 @@ export function resizeImage(file: File, maxWidth: number = 1600): Promise<string
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        const base64 = canvas.toDataURL("image/jpeg", 0.8);
+        // Use 0.75 quality to further reduce file size while maintaining good quality
+        const base64 = canvas.toDataURL("image/jpeg", 0.75);
         resolve(base64);
       };
       img.onerror = reject;

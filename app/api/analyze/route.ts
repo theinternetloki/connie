@@ -3,6 +3,10 @@ import { anthropic } from "@/lib/anthropic";
 import { supabaseAdmin } from "@/lib/supabase";
 import { AIAnalysis } from "@/lib/types";
 
+// Increase body size limit for image uploads (default is 1MB, we need more for compressed images)
+export const maxDuration = 60; // 60 seconds for AI processing
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const { photos, vehicle, userId } = await request.json();
