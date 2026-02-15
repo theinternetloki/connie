@@ -44,7 +44,8 @@ npm run dev
 
 1. In your Supabase dashboard, go to SQL Editor
 2. Run the contents of `supabase-schema.sql`
-3. Go to Storage and create a bucket named `inspection-photos` (make it public)
+3. If you encounter a "row-level security policy" error on signup, run the SQL from `fix-rls-policy.sql`
+4. Go to Storage and create a bucket named `inspection-photos` (make it public)
 
 ## Environment Variables
 

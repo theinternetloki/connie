@@ -61,6 +61,7 @@ alter table estimate_items enable row level security;
 
 -- Profiles policies
 create policy "Users can view own profile" on profiles for select using (auth.uid() = id);
+create policy "Users can create own profile" on profiles for insert with check (auth.uid() = id);
 create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
 
 -- Inspections policies
