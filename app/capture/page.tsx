@@ -86,9 +86,13 @@ export default function CapturePage() {
 
   const handlePhotoCapture = (file: File) => {
     const station = PHOTO_STATIONS[currentStationIndex];
+    
+    // Remove any existing photo for this station
+    const filteredPhotos = photos.filter((p) => p.station !== station.id);
+    
     const url = URL.createObjectURL(file);
     setPhotos([
-      ...photos,
+      ...filteredPhotos,
       {
         id: `${station.id}-${Date.now()}`,
         file,

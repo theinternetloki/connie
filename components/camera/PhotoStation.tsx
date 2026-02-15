@@ -24,14 +24,28 @@ export function PhotoStation({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Reset photo and camera when station changes
   useEffect(() => {
-    if (!photo && !stream) {
+    // Clean up previous photo URL if it exists
+    if (photo && photo.startsWith("blob:")) {
+      URL.revokeObjectURL(photo);
+    }
+    
+    // Reset photo state to match currentPhoto prop
+    setPhoto(currentPhoto || null);
+    
+    // Stop any existing camera stream
+    stopCamera();
+    
+    // Start camera if no photo exists for this station
+    if (!currentPhoto) {
       startCamera();
     }
+    
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [station.id, currentPhoto]);
 
   const startCamera = async () => {
     try {
@@ -79,6 +93,10 @@ export function PhotoStation({
   };
 
   const retakePhoto = () => {
+    // Clean up previous photo URL
+    if (photo && photo.startsWith("blob:")) {
+      URL.revokeObjectURL(photo);
+    }
     setPhoto(null);
     startCamera();
   };
