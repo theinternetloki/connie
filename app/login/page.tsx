@@ -21,14 +21,23 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
 
-      router.push("/dashboard");
+      // Wait a moment for session to be set, then refresh and redirect
+      if (data.session) {
+        // Use window.location for a full page reload to ensure cookies are set
+        window.location.href = "/dashboard";
+      } else {
+        // Fallback to router if session isn't immediately available
+        await new Promise(resolve => setTimeout(resolve, 100));
+        router.refresh();
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       // Handle specific error messages
       const errorMessage = err.message || err.error?.message || "An error occurred during login. Please try again.";

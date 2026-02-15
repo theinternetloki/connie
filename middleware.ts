@@ -65,6 +65,7 @@ export async function middleware(req: NextRequest) {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
   // If user is not authenticated and trying to access a protected route
