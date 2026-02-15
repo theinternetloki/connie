@@ -8,6 +8,7 @@ import { PhotoStationConfig } from "@/lib/types";
 interface PhotoStationProps {
   station: PhotoStationConfig;
   onCapture: (file: File) => void;
+  onMultipleCapture?: (files: File[]) => void;
   onSkip?: () => void;
   currentPhoto?: string | null;
 }
@@ -15,6 +16,7 @@ interface PhotoStationProps {
 export function PhotoStation({
   station,
   onCapture,
+  onMultipleCapture,
   onSkip,
   currentPhoto,
 }: PhotoStationProps) {
@@ -51,6 +53,7 @@ export function PhotoStation({
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
+        audio: false, // Explicitly disable microphone/audio
       });
       setStream(mediaStream);
       if (videoRef.current) {
@@ -102,14 +105,36 @@ export function PhotoStation({
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Stop camera when selecting from gallery
-      stopCamera();
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Stop camera when selecting from gallery
+    stopCamera();
+
+    if (files.length === 1) {
+      // Single file - handle normally
+      const file = files[0];
       const photoUrl = URL.createObjectURL(file);
       setPhoto(photoUrl);
       onCapture(file);
+    } else {
+      // Multiple files - don't show preview, just process all files
+      // Call the multiple capture handler if available
+      if (onMultipleCapture) {
+        onMultipleCapture(files);
+        // Show a message or first photo briefly
+        const firstFile = files[0];
+        const photoUrl = URL.createObjectURL(firstFile);
+        setPhoto(photoUrl);
+      } else {
+        // Fallback: just capture the first file
+        const firstFile = files[0];
+        const photoUrl = URL.createObjectURL(firstFile);
+        setPhoto(photoUrl);
+        onCapture(firstFile);
+      }
     }
+    
     // Reset input so the same file can be selected again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -161,6 +186,7 @@ export function PhotoStation({
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -169,7 +195,7 @@ export function PhotoStation({
               variant="outline"
               className="flex-1"
             >
-              Choose from Gallery
+              Choose from Gallery (Multiple)
             </Button>
             <Button onClick={capturePhoto} className="flex-1">
               <Camera className="mr-2 h-4 w-4" />

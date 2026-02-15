@@ -104,6 +104,65 @@ export default function CapturePage() {
     ]);
   };
 
+  const handleMultiplePhotoCapture = (files: File[]) => {
+    const newPhotos: Array<{ id: string; file: File; url: string; station: PhotoStationType }> = [];
+    let fileIndex = 0;
+    
+    // Find stations that don't have photos yet, starting from current station
+    const stationsWithoutPhotos: number[] = [];
+    for (let i = currentStationIndex; i < PHOTO_STATIONS.length && fileIndex < files.length; i++) {
+      const station = PHOTO_STATIONS[i];
+      const hasPhoto = photos.find((p) => p.station === station.id);
+      if (!hasPhoto) {
+        stationsWithoutPhotos.push(i);
+      }
+    }
+    
+    // Assign files to stations that don't have photos
+    stationsWithoutPhotos.forEach((stationIndex) => {
+      if (fileIndex < files.length) {
+        const station = PHOTO_STATIONS[stationIndex];
+        const file = files[fileIndex];
+        const url = URL.createObjectURL(file);
+        newPhotos.push({
+          id: `${station.id}-${Date.now()}-${fileIndex}`,
+          file,
+          url,
+          station: station.id as PhotoStationType,
+        });
+        fileIndex++;
+      }
+    });
+
+    // Add new photos (don't remove existing ones, just add new)
+    setPhotos([...photos, ...newPhotos]);
+
+    // Auto-advance to next station that needs a photo, or proceed to analysis
+    setTimeout(() => {
+      const allPhotos = [...photos, ...newPhotos];
+      const requiredStations = PHOTO_STATIONS.filter((s) => s.required);
+      const missingRequired = requiredStations.find(
+        (station) => !allPhotos.find((p) => p.station === station.id)
+      );
+
+      if (!missingRequired) {
+        // All required photos captured, proceed to analysis
+        handleNext();
+      } else {
+        // Find next station that needs a photo
+        const nextStationIndex = PHOTO_STATIONS.findIndex(
+          (s) => s.id === missingRequired.id
+        );
+        if (nextStationIndex !== -1) {
+          setCurrentStationIndex(nextStationIndex);
+        } else {
+          // No more stations, proceed to analysis
+          handleNext();
+        }
+      }
+    }, 100);
+  };
+
   const handleDamagePhoto = (file: File) => {
     const url = URL.createObjectURL(file);
     setDamagePhotos([
@@ -221,6 +280,7 @@ export default function CapturePage() {
             <PhotoStation
               station={currentStation}
               onCapture={handlePhotoCapture}
+              onMultipleCapture={handleMultiplePhotoCapture}
               onSkip={
                 !currentStation.required
                   ? () => handleNext()
