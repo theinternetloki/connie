@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -70,7 +71,8 @@ export async function GET(request: NextRequest) {
     // Create profile if it doesn't exist
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data: existingProfile } = await supabase
+      // Use admin client to bypass RLS and ensure profile creation
+      const { data: existingProfile } = await supabaseAdmin
         .from("profiles")
         .select("id")
         .eq("id", user.id)
@@ -79,10 +81,17 @@ export async function GET(request: NextRequest) {
       if (!existingProfile) {
         // Get dealership name from user metadata if available
         const dealershipName = (user.user_metadata?.dealership_name as string) || "";
-        await supabase.from("profiles").insert({
-          id: user.id,
-          dealership_name: dealershipName,
-        });
+        const { error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .insert({
+            id: user.id,
+            dealership_name: dealershipName,
+          });
+        
+        if (profileError) {
+          console.error("Profile creation error in callback:", profileError);
+          // Continue anyway - the trigger or analyze route will handle it
+        }
       }
     }
 

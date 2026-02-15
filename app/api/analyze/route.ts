@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { anthropic } from "@/lib/anthropic";
 import { supabaseAdmin } from "@/lib/supabase";
 import { AIAnalysis } from "@/lib/types";
+import { createServerClient } from "@supabase/ssr";
 
 // Increase body size limit for image uploads (default is 1MB, we need more for compressed images)
 export const maxDuration = 60; // 60 seconds for AI processing
@@ -9,7 +10,50 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication first
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value;
+        },
+        set() {
+          // No-op for read-only operations
+        },
+        remove() {
+          // No-op for read-only operations
+        },
+      },
+    });
+
+    // Get authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized - Please log in to use this feature" },
+        { status: 401 }
+      );
+    }
+
     const { photos, vehicle, userId } = await request.json();
+
+    // Verify that the userId in the request matches the authenticated user
+    if (userId !== user.id) {
+      return NextResponse.json(
+        { error: "Unauthorized - User ID mismatch" },
+        { status: 403 }
+      );
+    }
 
     if (!photos || photos.length === 0) {
       return NextResponse.json(
@@ -137,11 +181,38 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
       );
     }
 
-    // Store in Supabase
+    // Ensure profile exists before creating inspection
+    // Only create profile for authenticated users (userId has been verified above)
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .single();
+
+    if (!existingProfile) {
+      // Create profile if it doesn't exist (fallback for users who signed up before profile creation was added)
+      // This is safe because we've verified the user is authenticated
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: user.id,
+          dealership_name: user.user_metadata?.dealership_name || "", // Get from user metadata if available
+        });
+
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        return NextResponse.json(
+          { error: "Failed to create user profile. Please contact support." },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Store in Supabase (use authenticated user.id, not userId from request)
     const { data: inspection, error: inspectionError } = await supabaseAdmin
       .from("inspections")
       .insert({
-        user_id: userId,
+        user_id: user.id,
         vin: vehicle.vin,
         year: vehicle.year,
         make: vehicle.make,
