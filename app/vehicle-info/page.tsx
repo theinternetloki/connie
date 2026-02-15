@@ -45,7 +45,7 @@ export default function VehicleInfoPage() {
     <div className="min-h-screen bg-gray-50 p-4">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle>Vehicle Information</CardTitle>
+          <CardTitle className="text-gray-900">Vehicle Information</CardTitle>
         </CardHeader>
         <CardContent>
           <VehicleForm onSubmit={handleSubmit} initialData={vehicleData} />
