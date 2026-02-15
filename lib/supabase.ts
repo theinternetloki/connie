@@ -1,3 +1,4 @@
+import { createBrowserClient } from "@supabase/ssr";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 let supabaseClient: SupabaseClient | null = null;
@@ -18,6 +19,13 @@ function createSupabaseClient(): SupabaseClient {
     }
   }
   
+  // Use createBrowserClient for cookie-based session management
+  // This ensures cookies are used instead of localStorage, syncing with middleware
+  if (typeof window !== "undefined") {
+    return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  }
+  
+  // Fallback for server-side (shouldn't be used, but just in case)
   return createClient(supabaseUrl, supabaseAnonKey);
 }
 

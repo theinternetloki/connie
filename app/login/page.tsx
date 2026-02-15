@@ -28,13 +28,15 @@ export default function LoginPage() {
 
       if (error) throw error;
 
-      // Wait a moment for session to be set, then refresh and redirect
+      // Wait for session to be properly set in cookies
       if (data.session) {
-        // Use window.location for a full page reload to ensure cookies are set
+        // Small delay to ensure cookies are set, then redirect
+        await new Promise(resolve => setTimeout(resolve, 200));
+        // Use window.location for a full page reload to ensure middleware sees the cookies
         window.location.href = "/dashboard";
       } else {
-        // Fallback to router if session isn't immediately available
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Fallback: wait and try router refresh
+        await new Promise(resolve => setTimeout(resolve, 300));
         router.refresh();
         router.push("/dashboard");
       }
