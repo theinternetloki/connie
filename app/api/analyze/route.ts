@@ -79,15 +79,8 @@ export async function POST(request: NextRequest) {
       },
     }));
 
-    // Create user message with labeled images
-    const photoLabels = photos.map(
-      (photo: { station: string }, index: number) =>
-        `Photo ${index + 1}: ${photo.station.replace(/_/g, " ")}`
-    );
-
-    const userMessage = `Please analyze these vehicle photos:
-
-${photoLabels.join("\n")}
+    // Create user message with numbered photos (no station labels)
+    const userMessage = `Please analyze these ${photos.length} vehicle photos. They are unlabeled, so please identify the vehicle areas and damage from the images themselves.
 
 Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ""}
 Mileage: ${vehicle.mileage}`;
@@ -142,9 +135,9 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
   }
 }`;
 
-    // Call Claude API
+    // Call Claude API with Opus 4.5 model
     const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-4-5-opus-20250514",
       max_tokens: 4096,
       system: systemPrompt,
       messages: [
@@ -241,7 +234,7 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
       photos.map(async (photo: { base64: string; station: string }, index: number) => {
         const base64Data = photo.base64.split(",")[1];
         const buffer = Buffer.from(base64Data, "base64");
-        const fileName = `${inspection.id}/${photo.station}_${index}.jpg`;
+        const fileName = `${inspection.id}/photo_${index + 1}.jpg`;
         
         const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
           .from("inspection-photos")
@@ -250,10 +243,10 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
           });
 
         if (!uploadError && uploadData) {
-          // Save photo record
+          // Save photo record (use photo_1, photo_2, etc. as station identifier)
           await supabaseAdmin.from("inspection_photos").insert({
             inspection_id: inspection.id,
-            station: photo.station,
+            station: photo.station || `photo_${index + 1}`,
             storage_path: fileName,
             sort_order: index,
           });

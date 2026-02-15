@@ -2,72 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PhotoStation } from "@/components/camera/PhotoStation";
-import { StationGuide } from "@/components/camera/StationGuide";
-import { PhotoStrip } from "@/components/camera/PhotoStrip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  PhotoStationConfig,
-  PhotoStation as PhotoStationType,
-} from "@/lib/types";
-import { ArrowRight, ArrowLeft } from "lucide-react";
+import { Camera, X, Check } from "lucide-react";
 import { resizeImage } from "@/lib/utils";
+import { PhotoStrip } from "@/components/camera/PhotoStrip";
 
-const PHOTO_STATIONS: PhotoStationConfig[] = [
-  {
-    id: "front_exterior",
-    label: "Front Exterior",
-    description: "Take a photo of the front of the vehicle",
-    required: true,
-  },
-  {
-    id: "passenger_side_exterior",
-    label: "Passenger Side",
-    description: "Take a photo of the passenger side of the vehicle",
-    required: true,
-  },
-  {
-    id: "rear_exterior",
-    label: "Rear Exterior",
-    description: "Take a photo of the rear of the vehicle",
-    required: true,
-  },
-  {
-    id: "driver_side_exterior",
-    label: "Driver Side",
-    description: "Take a photo of the driver side of the vehicle",
-    required: true,
-  },
-  {
-    id: "driver_side_interior",
-    label: "Driver Side Interior",
-    description: "Take a photo of the dashboard, steering wheel, and driver seat",
-    required: true,
-  },
-  {
-    id: "passenger_side_interior",
-    label: "Passenger Side Interior",
-    description: "Take a photo of the passenger side interior",
-    required: true,
-  },
-  {
-    id: "roof",
-    label: "Roof / Top View",
-    description: "Take a photo of the roof or top of the vehicle",
-    required: false,
-  },
-];
+const MAX_PHOTOS = 10;
 
 export default function CapturePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth(true);
-  const [currentStationIndex, setCurrentStationIndex] = useState(0);
   const [photos, setPhotos] = useState<
-    Array<{ id: string; file: File; url: string; station: PhotoStationType }>
-  >([]);
-  const [damagePhotos, setDamagePhotos] = useState<
     Array<{ id: string; file: File; url: string }>
   >([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -87,153 +34,80 @@ export default function CapturePage() {
   }, [router, user, authLoading]);
 
   const handlePhotoCapture = (file: File) => {
-    const station = PHOTO_STATIONS[currentStationIndex];
-    
-    // Remove any existing photo for this station
-    const filteredPhotos = photos.filter((p) => p.station !== station.id);
-    
+    if (photos.length >= MAX_PHOTOS) {
+      alert(`Maximum ${MAX_PHOTOS} photos allowed.`);
+      return;
+    }
+
     const url = URL.createObjectURL(file);
     setPhotos([
-      ...filteredPhotos,
+      ...photos,
       {
-        id: `${station.id}-${Date.now()}`,
+        id: `photo-${Date.now()}-${photos.length}`,
         file,
         url,
-        station: station.id as PhotoStationType,
       },
     ]);
   };
 
   const handleMultiplePhotoCapture = (files: File[]) => {
-    const newPhotos: Array<{ id: string; file: File; url: string; station: PhotoStationType }> = [];
-    let fileIndex = 0;
+    const remainingSlots = MAX_PHOTOS - photos.length;
+    const filesToAdd = files.slice(0, remainingSlots);
     
-    // Find stations that don't have photos yet, starting from current station
-    const stationsWithoutPhotos: number[] = [];
-    for (let i = currentStationIndex; i < PHOTO_STATIONS.length && fileIndex < files.length; i++) {
-      const station = PHOTO_STATIONS[i];
-      const hasPhoto = photos.find((p) => p.station === station.id);
-      if (!hasPhoto) {
-        stationsWithoutPhotos.push(i);
-      }
+    if (files.length > remainingSlots) {
+      alert(`Only ${remainingSlots} more photos can be added (max ${MAX_PHOTOS} total).`);
     }
-    
-    // Assign files to stations that don't have photos
-    stationsWithoutPhotos.forEach((stationIndex) => {
-      if (fileIndex < files.length) {
-        const station = PHOTO_STATIONS[stationIndex];
-        const file = files[fileIndex];
-        const url = URL.createObjectURL(file);
-        newPhotos.push({
-          id: `${station.id}-${Date.now()}-${fileIndex}`,
-          file,
-          url,
-          station: station.id as PhotoStationType,
-        });
-        fileIndex++;
-      }
-    });
 
-    // Add new photos (don't remove existing ones, just add new)
+    const newPhotos = filesToAdd.map((file, index) => ({
+      id: `photo-${Date.now()}-${photos.length + index}`,
+      file,
+      url: URL.createObjectURL(file),
+    }));
+
     setPhotos([...photos, ...newPhotos]);
-
-    // Auto-advance to next station that needs a photo, or proceed to analysis
-    setTimeout(() => {
-      const allPhotos = [...photos, ...newPhotos];
-      const requiredStations = PHOTO_STATIONS.filter((s) => s.required);
-      const missingRequired = requiredStations.find(
-        (station) => !allPhotos.find((p) => p.station === station.id)
-      );
-
-      if (!missingRequired) {
-        // All required photos captured, proceed to analysis
-        handleNext();
-      } else {
-        // Find next station that needs a photo
-        const nextStationIndex = PHOTO_STATIONS.findIndex(
-          (s) => s.id === missingRequired.id
-        );
-        if (nextStationIndex !== -1) {
-          setCurrentStationIndex(nextStationIndex);
-        } else {
-          // No more stations, proceed to analysis
-          handleNext();
-        }
-      }
-    }, 100);
   };
 
-  const handleDamagePhoto = (file: File) => {
-    const url = URL.createObjectURL(file);
-    setDamagePhotos([
-      ...damagePhotos,
-      { id: `damage-${Date.now()}`, file, url },
-    ]);
+  const handleRemovePhoto = (id: string) => {
+    const photoToRemove = photos.find((p) => p.id === id);
+    if (photoToRemove && photoToRemove.url.startsWith("blob:")) {
+      URL.revokeObjectURL(photoToRemove.url);
+    }
+    setPhotos(photos.filter((p) => p.id !== id));
   };
 
-  const handleNext = async () => {
-    if (isProcessing) return;
-    
-    if (currentStationIndex < PHOTO_STATIONS.length - 1) {
-      setCurrentStationIndex(currentStationIndex + 1);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (files.length === 1) {
+      handlePhotoCapture(files[0]);
     } else {
-      // All stations complete, proceed to analysis
-      setIsProcessing(true);
-      try {
-        await proceedToAnalysis();
-      } finally {
-        setIsProcessing(false);
-      }
+      handleMultiplePhotoCapture(files);
     }
-  };
 
-  const handlePrevious = () => {
-    if (currentStationIndex > 0) {
-      setCurrentStationIndex(currentStationIndex - 1);
-    }
+    // Reset input
+    e.target.value = '';
   };
 
   const proceedToAnalysis = async () => {
+    if (photos.length === 0) {
+      alert("Please add at least one photo before proceeding.");
+      return;
+    }
+
+    setIsProcessing(true);
     try {
-      // Validate that all required photos are captured
-      const requiredStations = PHOTO_STATIONS.filter((s) => s.required);
-      const missingRequired = requiredStations.filter(
-        (station) => !photos.find((p) => p.station === station.id)
-      );
-
-      if (missingRequired.length > 0) {
-        alert(
-          `Please capture all required photos before proceeding. Missing: ${missingRequired.map((s) => s.label).join(", ")}`
-        );
-        return;
-      }
-
-      // Check if we have at least some photos
-      if (photos.length === 0) {
-        alert("Please capture at least one photo before proceeding.");
-        return;
-      }
-
-      // Store photos in sessionStorage
-      const allPhotos = [
-        ...photos.map((p) => ({ file: p.file, station: p.station })),
-        ...damagePhotos.map((p) => ({ file: p.file, station: "damage_closeup" as PhotoStationType })),
-      ];
-
-      // Convert to base64 for API (with compression to reduce payload size)
-      // Compress to max 1200px width to stay under Vercel's 4.5MB limit
+      // Convert to base64 for API (with compression)
       const photoData = await Promise.all(
-        allPhotos.map(async (p) => {
+        photos.map(async (p, index) => {
           try {
-            // Resize and compress image to max 1200px width (reduces file size significantly)
             const base64 = await resizeImage(p.file, 1200);
-            return { base64, station: p.station };
+            return { base64, station: `photo_${index + 1}` };
           } catch (error) {
-            console.error(`Error compressing photo for station ${p.station}:`, error);
-            // Fallback to original file if compression fails
+            console.error(`Error compressing photo ${index + 1}:`, error);
             const reader = new FileReader();
             return new Promise((resolve, reject) => {
-              reader.onload = () => resolve({ base64: reader.result as string, station: p.station });
+              reader.onload = () => resolve({ base64: reader.result as string, station: `photo_${index + 1}` });
               reader.onerror = reject;
               reader.readAsDataURL(p.file);
             });
@@ -254,14 +128,10 @@ export default function CapturePage() {
     } catch (error) {
       console.error("Error preparing photos for analysis:", error);
       alert("Failed to prepare photos for analysis. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
-
-
-  const currentStation = PHOTO_STATIONS[currentStationIndex];
-  const currentPhoto = photos.find(
-    (p) => p.station === currentStation.id
-  )?.url;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 pb-24">
@@ -269,82 +139,105 @@ export default function CapturePage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold">Photo Capture</h1>
           <p className="text-muted-foreground">
-            Step {currentStationIndex + 1} of {PHOTO_STATIONS.length}
+            Add up to {MAX_PHOTOS} photos of the vehicle ({photos.length}/{MAX_PHOTOS})
           </p>
         </div>
 
-        <StationGuide station={currentStation} />
-
         <Card>
           <CardContent className="p-4">
-            <PhotoStation
-              station={currentStation}
-              onCapture={handlePhotoCapture}
-              onMultipleCapture={handleMultiplePhotoCapture}
-              onSkip={
-                !currentStation.required
-                  ? () => handleNext()
-                  : undefined
-              }
-              currentPhoto={currentPhoto}
-            />
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="photo-input"
+                />
+                <Button
+                  onClick={() => document.getElementById("photo-input")?.click()}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={photos.length >= MAX_PHOTOS}
+                >
+                  Choose from Gallery
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Simple camera capture using file input
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "image/*";
+                    input.capture = "environment";
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) handlePhotoCapture(file);
+                    };
+                    input.click();
+                  }}
+                  className="flex-1"
+                  disabled={photos.length >= MAX_PHOTOS}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Take Photo
+                </Button>
+              </div>
+
+              {photos.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Captured Photos</h3>
+                  <PhotoStrip
+                    photos={photos.map((p, index) => ({
+                      id: p.id,
+                      url: p.url,
+                      label: `Photo ${index + 1}`,
+                    }))}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    {photos.map((photo, index) => (
+                      <div key={photo.id} className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden bg-gray-200">
+                          <img
+                            src={photo.url}
+                            alt={`Photo ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleRemovePhoto(photo.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                          Photo {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
-        {photos.length > 0 && (
-          <div>
-            <h3 className="text-sm font-semibold mb-2">Captured Photos</h3>
-            <PhotoStrip
-              photos={photos.map((p) => ({
-                id: p.id,
-                url: p.url,
-                label: PHOTO_STATIONS.find((s) => s.id === p.station)?.label || "",
-              }))}
-            />
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <Button
-            onClick={handlePrevious}
-            variant="outline"
-            disabled={currentStationIndex === 0}
-            className="flex-1"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Previous
-          </Button>
-          <Button
-            onClick={handleNext}
-            disabled={
-              isProcessing ||
-              (currentStation.required &&
-                !photos.find((p) => p.station === currentStation.id))
-            }
-            className="flex-1"
-          >
-            {isProcessing ? "Processing..." : "Next"}
-            {!isProcessing && <ArrowRight className="ml-2 h-4 w-4" />}
-          </Button>
-        </div>
-
         <Button
-          onClick={() => {
-            // Trigger damage photo capture (allows both camera and gallery)
-            const input = document.createElement("input");
-            input.type = "file";
-            input.accept = "image/*";
-            // Removed capture="environment" to allow gallery selection
-            input.onchange = (e) => {
-              const file = (e.target as HTMLInputElement).files?.[0];
-              if (file) handleDamagePhoto(file);
-            };
-            input.click();
-          }}
-          variant="outline"
+          onClick={proceedToAnalysis}
+          disabled={isProcessing || photos.length === 0}
           className="w-full"
+          size="lg"
         >
-          Add Damage Close-up
+          {isProcessing ? (
+            "Processing..."
+          ) : (
+            <>
+              <Check className="mr-2 h-4 w-4" />
+              Proceed to Analysis ({photos.length} {photos.length === 1 ? "photo" : "photos"})
+            </>
+          )}
         </Button>
       </div>
     </div>
