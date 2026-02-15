@@ -69,6 +69,7 @@ export default function CapturePage() {
   const [damagePhotos, setDamagePhotos] = useState<
     Array<{ id: string; file: File; url: string }>
   >([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -110,12 +111,19 @@ export default function CapturePage() {
     ]);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (isProcessing) return;
+    
     if (currentStationIndex < PHOTO_STATIONS.length - 1) {
       setCurrentStationIndex(currentStationIndex + 1);
     } else {
       // All stations complete, proceed to analysis
-      proceedToAnalysis();
+      setIsProcessing(true);
+      try {
+        await proceedToAnalysis();
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -126,22 +134,54 @@ export default function CapturePage() {
   };
 
   const proceedToAnalysis = async () => {
-    // Store photos in sessionStorage
-    const allPhotos = [
-      ...photos.map((p) => ({ file: p.file, station: p.station })),
-      ...damagePhotos.map((p) => ({ file: p.file, station: "damage_closeup" as PhotoStationType })),
-    ];
+    try {
+      // Validate that all required photos are captured
+      const requiredStations = PHOTO_STATIONS.filter((s) => s.required);
+      const missingRequired = requiredStations.filter(
+        (station) => !photos.find((p) => p.station === station.id)
+      );
 
-    // Convert to base64 for API
-    const photoData = await Promise.all(
-      allPhotos.map(async (p) => {
-        const base64 = await fileToBase64(p.file);
-        return { base64, station: p.station };
-      })
-    );
+      if (missingRequired.length > 0) {
+        alert(
+          `Please capture all required photos before proceeding. Missing: ${missingRequired.map((s) => s.label).join(", ")}`
+        );
+        return;
+      }
 
-    sessionStorage.setItem("photos", JSON.stringify(photoData));
-    router.push("/analyzing");
+      // Check if we have at least some photos
+      if (photos.length === 0) {
+        alert("Please capture at least one photo before proceeding.");
+        return;
+      }
+
+      // Store photos in sessionStorage
+      const allPhotos = [
+        ...photos.map((p) => ({ file: p.file, station: p.station })),
+        ...damagePhotos.map((p) => ({ file: p.file, station: "damage_closeup" as PhotoStationType })),
+      ];
+
+      // Convert to base64 for API
+      const photoData = await Promise.all(
+        allPhotos.map(async (p) => {
+          const base64 = await fileToBase64(p.file);
+          return { base64, station: p.station };
+        })
+      );
+
+      // Ensure vehicle data is still in sessionStorage
+      const vehicle = sessionStorage.getItem("vehicle");
+      if (!vehicle) {
+        alert("Vehicle information is missing. Please start over.");
+        router.push("/vehicle-info");
+        return;
+      }
+
+      sessionStorage.setItem("photos", JSON.stringify(photoData));
+      router.push("/analyzing");
+    } catch (error) {
+      console.error("Error preparing photos for analysis:", error);
+      alert("Failed to prepare photos for analysis. Please try again.");
+    }
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -211,13 +251,14 @@ export default function CapturePage() {
           <Button
             onClick={handleNext}
             disabled={
-              currentStation.required &&
-              !photos.find((p) => p.station === currentStation.id)
+              isProcessing ||
+              (currentStation.required &&
+                !photos.find((p) => p.station === currentStation.id))
             }
             className="flex-1"
           >
-            Next
-            <ArrowRight className="ml-2 h-4 w-4" />
+            {isProcessing ? "Processing..." : "Next"}
+            {!isProcessing && <ArrowRight className="ml-2 h-4 w-4" />}
           </Button>
         </div>
 
