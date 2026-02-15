@@ -30,7 +30,14 @@ export default function LoginPage() {
 
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message);
+      // Handle specific error messages
+      if (err.message?.includes("rate limit")) {
+        setError("Too many login attempts. Please wait a few minutes and try again.");
+      } else if (err.message?.includes("Invalid login credentials")) {
+        setError("Invalid email or password. Please try again.");
+      } else {
+        setError(err.message || "An error occurred during login. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -43,7 +43,14 @@ export default function SignupPage() {
 
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message);
+      // Handle specific error messages
+      if (err.message?.includes("rate limit")) {
+        setError("Too many signup attempts. Please wait a few minutes and try again.");
+      } else if (err.message?.includes("already registered")) {
+        setError("An account with this email already exists. Please login instead.");
+      } else {
+        setError(err.message || "An error occurred during signup. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
