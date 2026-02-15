@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
   // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/signup"];
+  const publicRoutes = ["/", "/login", "/signup", "/auth/callback"];
   const isPublicRoute = publicRoutes.includes(req.nextUrl.pathname);
 
   // If Supabase env vars aren't set, allow all routes (for build time)
