@@ -13,6 +13,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Prevent custom element conflicts from browser extensions */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined') {
+                const originalDefine = window.customElements?.define;
+                if (originalDefine) {
+                  window.customElements.define = function(name, constructor, options) {
+                    if (!window.customElements.get(name)) {
+                      return originalDefine.call(this, name, constructor, options);
+                    }
+                    return;
+                  };
+                }
+              }
+            `,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

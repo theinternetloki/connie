@@ -31,12 +31,16 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: any) {
       // Handle specific error messages
-      if (err.message?.includes("rate limit")) {
+      const errorMessage = err.message || err.error?.message || "An error occurred during login. Please try again.";
+      
+      if (errorMessage.includes("rate limit") || errorMessage.includes("too many")) {
         setError("Too many login attempts. Please wait a few minutes and try again.");
-      } else if (err.message?.includes("Invalid login credentials")) {
-        setError("Invalid email or password. Please try again.");
+      } else if (errorMessage.includes("Invalid login credentials") || errorMessage.includes("invalid") || errorMessage.includes("400")) {
+        setError("Invalid email or password. Please check your credentials and try again.");
+      } else if (errorMessage.includes("Email not confirmed")) {
+        setError("Please check your email and click the confirmation link before logging in.");
       } else {
-        setError(err.message || "An error occurred during login. Please try again.");
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -58,6 +62,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
                 className="mt-2"
               />
@@ -69,6 +74,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
                 className="mt-2"
               />
