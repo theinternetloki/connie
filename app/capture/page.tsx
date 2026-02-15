@@ -7,6 +7,7 @@ import { StationGuide } from "@/components/camera/StationGuide";
 import { PhotoStrip } from "@/components/camera/PhotoStrip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
 import {
   PhotoStationConfig,
   PhotoStation as PhotoStationType,
@@ -60,6 +61,7 @@ const PHOTO_STATIONS: PhotoStationConfig[] = [
 
 export default function CapturePage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth(true);
   const [currentStationIndex, setCurrentStationIndex] = useState(0);
   const [photos, setPhotos] = useState<
     Array<{ id: string; file: File; url: string; station: PhotoStationType }>
@@ -69,11 +71,18 @@ export default function CapturePage() {
   >([]);
 
   useEffect(() => {
+    if (authLoading) return;
+    
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    
     const vehicle = sessionStorage.getItem("vehicle");
     if (!vehicle) {
       router.push("/vehicle-info");
     }
-  }, [router]);
+  }, [router, user, authLoading]);
 
   const handlePhotoCapture = (file: File) => {
     const station = PHOTO_STATIONS[currentStationIndex];

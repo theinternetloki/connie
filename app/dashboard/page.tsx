@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Inspection } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, LogOut } from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth(true);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,14 +25,24 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    loadInspections();
-  }, []);
+    if (user) {
+      loadInspections();
+    }
+  }, [user]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   const loadInspections = async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
         .from("inspections")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -62,7 +74,7 @@ export default function DashboardPage() {
       inv.vin?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p>Loading...</p>
@@ -75,10 +87,16 @@ export default function DashboardPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <Button onClick={() => router.push("/vehicle-info")}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Inspection
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => router.push("/vehicle-info")}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Inspection
+            </Button>
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}

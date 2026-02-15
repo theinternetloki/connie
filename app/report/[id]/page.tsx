@@ -9,27 +9,34 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Inspection, EstimateItem } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { Download, Share2, Plus } from "lucide-react";
 
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth(true);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [items, setItems] = useState<EstimateItem[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadInspection();
-  }, [params.id]);
+    if (user) {
+      loadInspection();
+    }
+  }, [params.id, user]);
 
   const loadInspection = async () => {
+    if (!user) return;
+    
     try {
       const { data: inspectionData, error: inspectionError } = await supabase
         .from("inspections")
         .select("*")
         .eq("id", params.id)
+        .eq("user_id", user.id)
         .single();
 
       if (inspectionError) throw inspectionError;
@@ -139,7 +146,7 @@ export default function ReportPage() {
     0
   );
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p>Loading...</p>

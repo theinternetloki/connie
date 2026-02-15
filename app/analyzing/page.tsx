@@ -32,9 +32,15 @@ export default function AnalyzingPage() {
         const vehicle = JSON.parse(vehicleData);
         const photos = JSON.parse(photosData);
 
-        // Get user ID from Supabase auth if available, otherwise use temp ID
-        const { data: { user } } = await supabase.auth.getUser();
-        const userId = user?.id || "temp-user-id";
+        // Get user ID from Supabase auth - required
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (!user || authError) {
+          router.push("/login");
+          return;
+        }
+        
+        const userId = user.id;
 
         const response = await fetch("/api/analyze", {
           method: "POST",
