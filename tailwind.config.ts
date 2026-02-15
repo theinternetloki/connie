@@ -11,6 +11,14 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        primary: {
+          DEFAULT: "#2563eb",
+          foreground: "#ffffff",
+        },
+        muted: {
+          DEFAULT: "#6b7280",
+          foreground: "#6b7280",
+        },
       },
     },
   },
