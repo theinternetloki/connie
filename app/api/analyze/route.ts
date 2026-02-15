@@ -135,9 +135,9 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
   }
 }`;
 
-    // Call Claude API with Opus 4.5 model
+    // Call Claude API with Opus 4.6 model
     const message = await anthropic.messages.create({
-      model: "claude-4-5-opus-20250514",
+      model: "claude-opus-4-6",
       max_tokens: 4096,
       system: systemPrompt,
       messages: [

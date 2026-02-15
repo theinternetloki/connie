@@ -1,3 +1,17 @@
+// Suppress url.parse() deprecation warnings
+if (typeof process !== 'undefined') {
+  const originalEmitWarning = process.emitWarning;
+  process.emitWarning = function (warning, ...args) {
+    if (
+      (typeof warning === 'string' && warning.includes('url.parse()')) ||
+      (typeof warning === 'object' && warning?.name === 'DeprecationWarning' && warning?.message?.includes('url.parse()'))
+    ) {
+      return;
+    }
+    return originalEmitWarning.apply(process, arguments);
+  };
+}
+
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
