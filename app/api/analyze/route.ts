@@ -109,32 +109,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure profile exists before creating inspection
-    const { data: existingProfile } = await supabaseAdmin
+    // Get user profile (should already exist from trigger or auth callback)
+    // If it doesn't exist, that's an error - profiles should be auto-created
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("id, labor_rate_tier")
       .eq("id", user.id)
       .single();
 
-    if (!existingProfile) {
-      // Create profile if it doesn't exist
-      const { error: profileError } = await supabaseAdmin
-        .from("profiles")
-        .insert({
-          id: user.id,
-          dealership_name: user.user_metadata?.dealership_name || "",
-        });
-
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-        return NextResponse.json(
-          { error: "Failed to create user profile. Please contact support." },
-          { status: 500 }
-        );
-      }
+    if (profileError || !profile) {
+      console.error("Profile not found for authenticated user:", profileError);
+      return NextResponse.json(
+        { error: "User profile not found. Please contact support." },
+        { status: 500 }
+      );
     }
 
-    const laborRateTier = existingProfile?.labor_rate_tier || "medium";
+    const laborRateTier = profile.labor_rate_tier || "medium";
 
     // ============================================
     // STEP 1: Damage Detection (Claude Vision)
