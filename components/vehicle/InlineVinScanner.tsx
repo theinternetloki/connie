@@ -42,69 +42,54 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
         const scanner = new Html5Qrcode(SCANNER_ID);
         scannerRef.current = scanner;
 
-        // Get the container dimensions for better scanning area
-        const container = document.getElementById(SCANNER_ID);
-        const containerWidth = container?.clientWidth || 300;
-        const containerHeight = container?.clientHeight || 300;
-        
-        // Use larger scanning area for better barcode detection (80% of container)
-        const scanAreaSize = Math.min(containerWidth, containerHeight) * 0.8;
-
-        // Try using file-based scanning as fallback, or use simpler config
+        // Use simplest possible configuration for maximum compatibility
         const config = {
-          fps: 10, // Lower FPS might be more stable
-          qrbox: function(viewfinderWidth: number, viewfinderHeight: number) {
-            // Use larger scanning area - 90% of viewfinder
-            const minEdgePercentage = 0.9;
-            const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-            const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
-            return {
-              width: qrboxSize,
-              height: qrboxSize
-            };
-          },
-          aspectRatio: 1.0,
-          disableFlip: false,
-          rememberLastUsedCamera: true,
-          showTorchButtonIfSupported: true
+          fps: 5, // Lower FPS for stability
+          qrbox: { width: 300, height: 300 }, // Fixed size for consistency
+          aspectRatio: 1.0
         };
 
-        console.log("Starting scanner with config:", config);
+        console.log("Starting scanner with simplified config");
         
         await scanner.start(
           { facingMode: "environment" },
           config,
-          (decodedText) => {
+          (decodedText, decodedResult) => {
             console.log("Scanner detected:", decodedText);
+            console.log("Decoded result:", decodedResult);
             
-            // Clean the scanned text
+            // Clean the scanned text - be more lenient with validation
             const cleanedVin = decodedText.trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
             console.log("Cleaned VIN:", cleanedVin, "Length:", cleanedVin.length);
             
-            // Accept VINs that are at least 10 characters (partial VINs) up to 17 characters
-            // Also accept any alphanumeric string 10+ chars as it might be a VIN
-            if (cleanedVin.length >= 10 && cleanedVin.length <= 17) {
-              console.log("Valid VIN detected, stopping scanner");
+            // Accept any alphanumeric string 8+ chars (very lenient to catch anything)
+            if (cleanedVin.length >= 8) {
+              // Take first 17 characters if longer
+              const finalVin = cleanedVin.substring(0, 17);
+              console.log("Valid VIN detected, stopping scanner:", finalVin);
               scanner.stop().then(() => {
                 scannerRef.current = null;
                 setIsScanning(false);
                 shouldStartScan.current = false;
-                onScan(cleanedVin);
+                onScan(finalVin);
               }).catch((err) => {
                 console.error("Error stopping scanner:", err);
                 scannerRef.current = null;
                 setIsScanning(false);
                 shouldStartScan.current = false;
-                onScan(cleanedVin);
+                onScan(finalVin);
               });
             } else {
-              console.log("Scanned text doesn't match VIN format, continuing scan");
+              console.log("Scanned text too short, continuing scan");
             }
           },
           (errorMessage) => {
-            // Log all errors for debugging
-            if (!errorMessage.includes("NotFoundException") && !errorMessage.includes("No MultiFormat Readers")) {
-              console.log("Scanner error (non-critical):", errorMessage);
+            // Only log actual errors, not "not found" which is normal
+            if (errorMessage && 
+                !errorMessage.includes("NotFoundException") && 
+                !errorMessage.includes("No MultiFormat Readers") &&
+                !errorMessage.includes("QR code parse error")) {
+              console.log("Scanner error:", errorMessage);
             }
           }
         );
@@ -185,9 +170,14 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
             </div>
           )}
           {!error && !showManualInput && (
-            <p className="text-sm text-gray-600 text-center">
-              Point camera at VIN barcode. Ensure good lighting.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600 text-center">
+                Point camera at VIN barcode. Ensure good lighting.
+              </p>
+              <p className="text-xs text-gray-500 text-center">
+                Note: Barcode scanning may not work on all devices. Use "Enter Manually" if scanning fails.
+              </p>
+            </div>
           )}
           {showManualInput && (
             <div className="space-y-3">

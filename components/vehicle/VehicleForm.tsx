@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,19 @@ import {
 } from "@/components/ui/select";
 import { Vehicle } from "@/lib/types";
 import { decodeVIN } from "@/lib/vin";
-import { InlineVinScanner } from "./InlineVinScanner";
+import { Camera } from "lucide-react";
+
+// CRITICAL: Dynamic import with ssr: false
+// react-zxing and @zxing/library use browser APIs (getUserMedia, canvas, etc.)
+// They CANNOT run during server-side rendering.
+const VinScanner = dynamic(() => import("@/components/vehicle/VinScanner"), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+      <p className="text-white">Loading scanner...</p>
+    </div>
+  ),
+});
 
 interface VehicleFormProps {
   onSubmit: (vehicle: Vehicle) => void;
@@ -38,6 +51,7 @@ export function VehicleForm({ onSubmit, initialData }: VehicleFormProps) {
     vin: initialData?.vin || "",
   });
   const [isDecoding, setIsDecoding] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleVINChange = async (vin: string) => {
     // Clean VIN - remove spaces and convert to uppercase
@@ -90,16 +104,39 @@ export function VehicleForm({ onSubmit, initialData }: VehicleFormProps) {
             onChange={(e) => handleVINChange(e.target.value)}
             placeholder="Enter 17-character VIN"
             maxLength={17}
-            className="flex-1 h-12 text-base border-gray-300 rounded-xl"
+            className="flex-1 h-12 text-base border-gray-300 rounded-xl font-mono tracking-wider uppercase"
           />
-          <InlineVinScanner onScan={(vin) => handleVINChange(vin)} />
+          <Button
+            type="button"
+            onClick={() => setShowScanner(true)}
+            variant="outline"
+            size="default"
+            className="border-gray-300 hover:bg-gray-50 font-medium whitespace-nowrap h-12"
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            Scan
+          </Button>
         </div>
+        <p className="text-xs text-gray-500 mt-1">
+          Tip: You can scan the VIN barcode or enter it manually.
+        </p>
         {isDecoding && (
           <p className="text-sm text-gray-600 mt-2">
             Decoding VIN...
           </p>
         )}
       </div>
+
+      {/* Scanner Modal */}
+      {showScanner && (
+        <VinScanner
+          onScan={(vin) => {
+            handleVINChange(vin);
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="grid grid-cols-2 gap-4">
