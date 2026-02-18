@@ -185,7 +185,7 @@ export default function VinScanner({ onScan, onClose }: VinScannerProps) {
       // Stop the continuous decode loop and release the camera
       if (controlsRef.current) {
         try {
-          // controlsRef.current is a promise, need to handle both cases
+          // controlsRef.current is IScannerControls which has a stop() method
           if (typeof controlsRef.current === "object" && "stop" in controlsRef.current) {
             (controlsRef.current as any).stop();
           }
@@ -194,14 +194,8 @@ export default function VinScanner({ onScan, onClose }: VinScannerProps) {
         }
       }
 
-      // Also reset the reader
-      if (readerRef.current) {
-        try {
-          readerRef.current.reset();
-        } catch (e) {
-          // Ignore
-        }
-      }
+      // Note: BrowserMultiFormatReader doesn't have a reset() method
+      // Stopping the controls and releasing the media tracks is sufficient
 
       // Release camera stream from video element
       if (videoRef.current?.srcObject) {
