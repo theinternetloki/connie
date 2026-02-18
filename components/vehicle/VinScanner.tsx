@@ -26,9 +26,7 @@ interface VinScannerProps {
 
 export default function VinScanner({ onScan, onClose }: VinScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsRef = useRef<ReturnType<
-    BrowserMultiFormatReader["decodeFromVideoDevice"]
-  > | null>(null);
+  const controlsRef = useRef<any>(null); // IScannerControls - using any to avoid type issues
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>("Initializing camera...");
@@ -121,7 +119,8 @@ export default function VinScanner({ onScan, onClose }: VinScannerProps) {
         // IMPORTANT: We use decodeFromVideoDevice instead of
         // decodeFromConstraints because it handles device selection
         // more reliably across browsers.
-        controlsRef.current = await reader.decodeFromVideoDevice(
+        // Note: decodeFromVideoDevice returns IScannerControls directly, not a Promise
+        controlsRef.current = reader.decodeFromVideoDevice(
           selectedDeviceId,
           videoRef.current,
           (result, error, controls) => {
