@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeScanType, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Camera, X } from "lucide-react";
 
@@ -40,27 +40,58 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
         const scanner = new Html5Qrcode(SCANNER_ID);
         scannerRef.current = scanner;
 
+        // Get the container dimensions for better scanning area
+        const container = document.getElementById(SCANNER_ID);
+        const containerWidth = container?.clientWidth || 300;
+        const containerHeight = container?.clientHeight || 300;
+        
+        // Use larger scanning area for better barcode detection (80% of container)
+        const scanAreaSize = Math.min(containerWidth, containerHeight) * 0.8;
+
         await scanner.start(
           { facingMode: "environment" },
           {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
+            fps: 30, // Higher FPS for better barcode detection
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+              // Use 80% of the viewfinder for scanning area
+              const minEdgePercentage = 0.8;
+              const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+              const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+              return {
+                width: qrboxSize,
+                height: qrboxSize
+              };
+            },
+            aspectRatio: 1.0,
+            disableFlip: false, // Allow rotation for better detection
+            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
           },
           (decodedText) => {
-            scanner.stop().then(() => {
-              scannerRef.current = null;
-              setIsScanning(false);
-              shouldStartScan.current = false;
-              onScan(decodedText.trim());
-            }).catch(() => {
-              scannerRef.current = null;
-              setIsScanning(false);
-              shouldStartScan.current = false;
-              onScan(decodedText.trim());
-            });
+            // Validate that it looks like a VIN (alphanumeric, typically 17 chars but can be shorter)
+            const cleanedVin = decodedText.trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+            
+            // Accept VINs that are at least 10 characters (partial VINs) up to 17 characters
+            if (cleanedVin.length >= 10 && cleanedVin.length <= 17 && /^[A-HJ-NPR-Z0-9]+$/.test(cleanedVin)) {
+              scanner.stop().then(() => {
+                scannerRef.current = null;
+                setIsScanning(false);
+                shouldStartScan.current = false;
+                onScan(cleanedVin);
+              }).catch(() => {
+                scannerRef.current = null;
+                setIsScanning(false);
+                shouldStartScan.current = false;
+                onScan(cleanedVin);
+              });
+            }
+            // If not a valid VIN format, keep scanning silently
           },
           (errorMessage) => {
             // Ignore scanning errors, just keep trying
+            // Only log if it's not a "not found" error (which is normal while scanning)
+            if (!errorMessage.includes("NotFoundException") && !errorMessage.includes("No MultiFormat Readers")) {
+              console.debug("Scanning...", errorMessage);
+            }
           }
         );
       } catch (err: any) {
@@ -119,14 +150,28 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
               <X className="h-5 w-5" />
             </Button>
           </div>
-          <div
-            id={SCANNER_ID}
-            className="w-full aspect-square bg-black rounded-lg overflow-hidden"
-          />
+          <div className="relative">
+            <div
+              id={SCANNER_ID}
+              className="w-full aspect-square bg-black rounded-lg overflow-hidden"
+            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="border-2 border-blue-500 rounded-lg w-3/4 h-3/4 flex items-center justify-center">
+                <div className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded">
+                  Position barcode here
+                </div>
+              </div>
+            </div>
+          </div>
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-sm text-red-700 text-center">{error}</p>
             </div>
+          )}
+          {!error && (
+            <p className="text-sm text-gray-600 text-center">
+              Point camera at VIN barcode. Ensure good lighting.
+            </p>
           )}
           <Button onClick={stopScan} variant="outline" className="w-full">
             <X className="mr-2 h-4 w-4" />
