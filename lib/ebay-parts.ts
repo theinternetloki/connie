@@ -127,8 +127,8 @@ export async function searchEbayParts(
     const prices = listings.map((l) => l.price).sort((a, b) => a - b);
     const medianIndex = Math.floor(prices.length / 2);
 
-    const result = {
-      source: "ebay",
+    const result: PartsPriceResult = {
+      source: "ebay" as const,
       query: `${partName} ${year} ${make} ${model}`,
       results_count: listings.length,
       price_low: prices[0],
