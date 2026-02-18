@@ -370,8 +370,8 @@ export default function ReportPage() {
                         </div>
                       </div>
                     )}
-                    <div className="flex items-center gap-4 pt-4 border-t border-gray-200">
-                      <div className="flex-1">
+                    <div className="pt-4 border-t border-gray-200 space-y-4">
+                      <div>
                         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                           Total Cost
                         </p>
@@ -404,11 +404,11 @@ export default function ReportPage() {
                         </div>
                       </div>
                       {item.product_link && (
-                        <div className="pt-6">
+                        <div>
                           <Button
                             variant="outline"
                             size="default"
-                            className="border-gray-300 hover:bg-gray-50 font-medium"
+                            className="w-full border-gray-300 hover:bg-gray-50 font-medium"
                             onClick={() => window.open(item.product_link, "_blank")}
                           >
                             <ShoppingCart className="mr-2 h-4 w-4" />
@@ -511,8 +511,8 @@ export default function ReportPage() {
                           </div>
                         </div>
                       )}
-                      <div className="flex items-center gap-4 pt-4 border-t border-gray-200">
-                        <div className="flex-1">
+                      <div className="pt-4 border-t border-gray-200 space-y-4">
+                        <div>
                           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                             Total Cost
                           </p>
@@ -545,11 +545,11 @@ export default function ReportPage() {
                           </div>
                         </div>
                         {item.product_link && (
-                          <div className="pt-6">
+                          <div>
                             <Button
                               variant="outline"
                               size="default"
-                              className="border-gray-300 hover:bg-gray-50 font-medium"
+                              className="w-full border-gray-300 hover:bg-gray-50 font-medium"
                               onClick={() => window.open(item.product_link, "_blank")}
                             >
                               <ShoppingCart className="mr-2 h-4 w-4" />

@@ -116,34 +116,34 @@ export default function AnalyzingPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
-        <CardContent className="p-8 text-center space-y-6">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-600" />
-          <div>
-            <h2 className="text-2xl font-bold mb-2">Analyzing Vehicle</h2>
-            <p className="text-muted-foreground mb-2">
-              {stepMessage}
-            </p>
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <div className={`h-2 w-2 rounded-full ${currentStep >= 1 ? 'bg-blue-600' : 'bg-gray-300'}`} />
-              <div className={`h-2 w-2 rounded-full ${currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`} />
-              <div className={`h-2 w-2 rounded-full ${currentStep >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`} />
-            </div>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-8 sm:p-10 text-center space-y-8">
+        <Loader2 className="h-16 w-16 animate-spin mx-auto text-blue-600" />
+        <div>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3 tracking-tight">
+            Analyzing Vehicle
+          </h2>
+          <p className="text-lg text-gray-600 mb-4">
+            {stepMessage}
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <div className={`h-3 w-3 rounded-full transition-colors ${currentStep >= 1 ? 'bg-blue-600' : 'bg-gray-300'}`} />
+            <div className={`h-3 w-3 rounded-full transition-colors ${currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`} />
+            <div className={`h-3 w-3 rounded-full transition-colors ${currentStep >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`} />
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-4">
-            <p className="text-sm text-blue-900 dark:text-blue-100">
-              💡 {funFacts[factIndex]}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+          <div
+            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-6 border border-blue-200">
+          <p className="text-base text-blue-900 font-medium">
+            💡 {funFacts[factIndex]}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

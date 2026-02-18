@@ -89,25 +89,31 @@ function SignupForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
-        <CardHeader>
-          <CardTitle>Sign Up</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div>
-              <Label htmlFor="dealership">Dealership Name</Label>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 sm:px-8 py-6 border-b border-gray-100">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+            Sign Up
+          </h1>
+        </div>
+        <div className="p-6 sm:p-8">
+          <form onSubmit={handleSignup} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="dealership" className="text-base font-semibold text-gray-900">
+                Dealership Name
+              </Label>
               <Input
                 id="dealership"
                 value={dealershipName}
                 onChange={(e) => setDealershipName(e.target.value)}
                 required
-                className="mt-2"
+                className="h-12 text-base border-gray-300 rounded-xl"
               />
             </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-base font-semibold text-gray-900">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -115,11 +121,13 @@ function SignupForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
                 required
-                className="mt-2"
+                className="h-12 text-base border-gray-300 rounded-xl"
               />
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-base font-semibold text-gray-900">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -128,38 +136,47 @@ function SignupForm() {
                 autoComplete="new-password"
                 required
                 minLength={6}
-                className="mt-2"
+                className="h-12 text-base border-gray-300 rounded-xl"
               />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-700 font-medium">{error}</p>
+              </div>
+            )}
             {showConfirmationMessage && !error && (
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm text-blue-900">
-                <p className="font-semibold mb-2">Check your email!</p>
-                <p>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 rounded-xl p-5">
+                <p className="font-semibold mb-2 text-blue-900">Check your email!</p>
+                <p className="text-sm text-blue-800 mb-2">
                   We've sent a confirmation link to <strong>{email}</strong>.
                   Please click the link in the email to verify your account.
                 </p>
-                <p className="mt-2 text-xs text-blue-700">
+                <p className="text-xs text-blue-700">
                   Didn't receive the email? Check your spam folder or try again.
                 </p>
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading || showConfirmationMessage}>
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700 font-semibold h-12" 
+              disabled={loading || showConfirmationMessage}
+              size="lg"
+            >
               {loading ? "Creating account..." : showConfirmationMessage ? "Check Your Email" : "Sign Up"}
             </Button>
-            <p className="text-sm text-center text-muted-foreground">
+            <p className="text-sm text-center text-gray-600">
               Already have an account?{" "}
               <button
                 type="button"
                 onClick={() => router.push("/login")}
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 hover:text-blue-700 font-semibold underline"
               >
                 Login
               </button>
             </p>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -167,12 +184,10 @@ function SignupForm() {
 export default function SignupPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="p-8">
-            <p className="text-center">Loading...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          <p className="text-center text-gray-600">Loading...</p>
+        </div>
       </div>
     }>
       <SignupForm />

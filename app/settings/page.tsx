@@ -88,37 +88,44 @@ export default function SettingsPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="dealership-name">Dealership Name</Label>
+    <div className="min-h-screen bg-white p-4 sm:p-6 lg:p-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 sm:px-8 py-6 border-b border-gray-100">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+              Settings
+            </h1>
+          </div>
+          <div className="p-6 sm:p-8 space-y-8">
+            <div className="space-y-3">
+              <Label htmlFor="dealership-name" className="text-base font-semibold text-gray-900">
+                Dealership Name
+              </Label>
               <Input
                 id="dealership-name"
                 value={dealershipName}
                 onChange={(e) => setDealershipName(e.target.value)}
                 placeholder="Enter your dealership name"
+                className="h-12 text-base border-gray-300 rounded-xl"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="labor-market">Labor Market</Label>
+            <div className="space-y-3">
+              <Label htmlFor="labor-market" className="text-base font-semibold text-gray-900">
+                Labor Market
+              </Label>
               <Select
                 value={laborRateTier}
                 onValueChange={setLaborRateTier}
               >
-                <SelectTrigger id="labor-market">
+                <SelectTrigger id="labor-market" className="h-12 text-base border-gray-300 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -127,34 +134,38 @@ export default function SettingsPage() {
                   <SelectItem value="high">High Cost Market</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-gray-600">
                 Select your local labor market to get more accurate cost estimates.
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="zip-code">ZIP Code</Label>
+            <div className="space-y-3">
+              <Label htmlFor="zip-code" className="text-base font-semibold text-gray-900">
+                ZIP Code
+              </Label>
               <Input
                 id="zip-code"
                 value={zipCode}
                 onChange={(e) => setZipCode(e.target.value)}
                 placeholder="Enter your ZIP code"
                 maxLength={5}
+                className="h-12 text-base border-gray-300 rounded-xl"
               />
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-gray-600">
                 Used for location-based parts pricing and shipping estimates.
               </p>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-200">
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex-1"
+                size="lg"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 font-semibold"
               >
                 {saving ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Saving...
                   </>
                 ) : (
@@ -164,13 +175,14 @@ export default function SettingsPage() {
               <Button
                 onClick={() => router.push("/dashboard")}
                 variant="outline"
-                className="flex-1"
+                size="lg"
+                className="flex-1 border-gray-300 font-semibold"
               >
                 Cancel
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

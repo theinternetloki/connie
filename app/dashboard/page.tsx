@@ -76,121 +76,130 @@ export default function DashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p>Loading...</p>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-gray-600">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <div className="flex gap-2">
-            <Button onClick={() => router.push("/vehicle-info")}>
-              <Plus className="mr-2 h-4 w-4" />
+    <div className="min-h-screen bg-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">
+            Dashboard
+          </h1>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => router.push("/vehicle-info")}
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 font-semibold"
+            >
+              <Plus className="mr-2 h-5 w-5" />
               New Inspection
             </Button>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              size="lg"
+              className="border-gray-300 font-semibold"
+            >
+              <LogOut className="mr-2 h-5 w-5" />
               Logout
             </Button>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Total Inspections</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Average Cost</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                ${Math.round(stats.avgCost).toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Total Estimated Cost</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                ${Math.round(stats.totalCost).toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
+              Total Inspections
+            </p>
+            <div className="text-4xl sm:text-5xl font-bold text-gray-900">
+              {stats.total}
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
+              Average Cost
+            </p>
+            <div className="text-4xl sm:text-5xl font-bold text-gray-900">
+              ${Math.round(stats.avgCost).toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">
+              Total Estimated Cost
+            </p>
+            <div className="text-4xl sm:text-5xl font-bold text-gray-900">
+              ${Math.round(stats.totalCost).toLocaleString()}
+            </div>
+          </div>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
           <Input
             placeholder="Search by make, model, or VIN..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-12 h-12 text-base border-gray-300 rounded-xl"
           />
         </div>
 
         {/* Inspections List */}
         <div className="space-y-4">
           {filteredInspections.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <p className="text-muted-foreground">
-                  No inspections found. Start by creating a new inspection.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+              <p className="text-gray-600 text-lg">
+                No inspections found. Start by creating a new inspection.
+              </p>
+            </div>
           ) : (
             filteredInspections.map((inspection) => (
-              <Card
+              <div
                 key={inspection.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 cursor-pointer hover:shadow-md hover:border-gray-200 transition-all"
                 onClick={() => router.push(`/report/${inspection.id}`)}
               >
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-xl font-semibold">
-                        {inspection.year} {inspection.make} {inspection.model}{" "}
-                        {inspection.trim}
-                      </h3>
-                      <p className="text-muted-foreground mt-1">
-                        {inspection.mileage.toLocaleString()} miles •{" "}
-                        {format(new Date(inspection.created_at), "MMM d, yyyy")}
-                      </p>
-                      <div className="flex gap-2 mt-2">
-                        <Badge variant="outline">
-                          {inspection.exterior_condition}
-                        </Badge>
-                        <Badge variant="outline">
-                          {inspection.interior_condition}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold">
-                        ${inspection.total_cost_low.toLocaleString()} – $
-                        {inspection.total_cost_high.toLocaleString()}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Estimated cost
-                      </p>
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      {inspection.year} {inspection.make} {inspection.model}
+                      {inspection.trim && ` ${inspection.trim}`}
+                    </h3>
+                    <p className="text-gray-600 mb-3">
+                      {inspection.mileage.toLocaleString()} miles •{" "}
+                      {format(new Date(inspection.created_at), "MMM d, yyyy")}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge 
+                        variant="outline"
+                        className="px-3 py-1 border-gray-300 text-sm font-medium"
+                      >
+                        {inspection.exterior_condition}
+                      </Badge>
+                      <Badge 
+                        variant="outline"
+                        className="px-3 py-1 border-gray-300 text-sm font-medium"
+                      >
+                        {inspection.interior_condition}
+                      </Badge>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-left sm:text-right">
+                    <div className="text-3xl sm:text-4xl font-bold text-gray-900 mb-1">
+                      ${inspection.total_cost_low.toLocaleString()} – ${inspection.total_cost_high.toLocaleString()}
+                    </div>
+                    <p className="text-sm text-gray-600 font-medium">
+                      Estimated cost
+                    </p>
+                  </div>
+                </div>
+              </div>
             ))
           )}
         </div>

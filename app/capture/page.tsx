@@ -134,107 +134,109 @@ export default function CapturePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 pb-24">
-      <div className="max-w-2xl mx-auto space-y-4">
+    <div className="min-h-screen bg-white pb-24">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Photo Capture</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight mb-3">
+            Photo Capture
+          </h1>
+          <p className="text-lg text-gray-600">
             Add up to {MAX_PHOTOS} photos of the vehicle ({photos.length}/{MAX_PHOTOS})
           </p>
         </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="photo-input"
-                />
-                <Button
-                  onClick={() => document.getElementById("photo-input")?.click()}
-                  variant="outline"
-                  className="flex-1"
-                  disabled={photos.length >= MAX_PHOTOS}
-                >
-                  Choose from Gallery
-                </Button>
-                <Button
-                  onClick={() => {
-                    // Simple camera capture using file input
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.accept = "image/*";
-                    input.capture = "environment";
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) handlePhotoCapture(file);
-                    };
-                    input.click();
-                  }}
-                  className="flex-1"
-                  disabled={photos.length >= MAX_PHOTOS}
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Take Photo
-                </Button>
-              </div>
-
-              {photos.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">Captured Photos</h3>
-                  <PhotoStrip
-                    photos={photos.map((p, index) => ({
-                      id: p.id,
-                      url: p.url,
-                      label: `Photo ${index + 1}`,
-                    }))}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    {photos.map((photo, index) => (
-                      <div key={photo.id} className="relative group">
-                        <div className="aspect-square rounded-lg overflow-hidden bg-gray-200">
-                          <img
-                            src={photo.url}
-                            alt={`Photo ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleRemovePhoto(photo.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                          Photo {index + 1}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+                id="photo-input"
+              />
+              <Button
+                onClick={() => document.getElementById("photo-input")?.click()}
+                variant="outline"
+                size="lg"
+                className="flex-1 border-gray-300 font-semibold h-12"
+                disabled={photos.length >= MAX_PHOTOS}
+              >
+                Choose from Gallery
+              </Button>
+              <Button
+                onClick={() => {
+                  // Simple camera capture using file input
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "image/*";
+                  input.capture = "environment";
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) handlePhotoCapture(file);
+                  };
+                  input.click();
+                }}
+                size="lg"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 font-semibold h-12"
+                disabled={photos.length >= MAX_PHOTOS}
+              >
+                <Camera className="mr-2 h-5 w-5" />
+                Take Photo
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+
+            {photos.length > 0 && (
+              <div className="space-y-4 pt-4 border-t border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Captured Photos</h3>
+                <PhotoStrip
+                  photos={photos.map((p, index) => ({
+                    id: p.id,
+                    url: p.url,
+                    label: `Photo ${index + 1}`,
+                  }))}
+                />
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {photos.map((photo, index) => (
+                    <div key={photo.id} className="relative group">
+                      <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm">
+                        <img
+                          src={photo.url}
+                          alt={`Photo ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleRemovePhoto(photo.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                      <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs font-medium px-2.5 py-1 rounded-md">
+                        Photo {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         <Button
           onClick={proceedToAnalysis}
           disabled={isProcessing || photos.length === 0}
-          className="w-full"
+          className="w-full bg-blue-600 hover:bg-blue-700 font-semibold"
           size="lg"
         >
           {isProcessing ? (
             "Processing..."
           ) : (
             <>
-              <Check className="mr-2 h-4 w-4" />
+              <Check className="mr-2 h-5 w-5" />
               Proceed to Analysis ({photos.length} {photos.length === 1 ? "photo" : "photos"})
             </>
           )}

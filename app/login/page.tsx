@@ -59,15 +59,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
-        <CardHeader>
-          <CardTitle>Login</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 sm:px-8 py-6 border-b border-gray-100">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight">
+            Login
+          </h1>
+        </div>
+        <div className="p-6 sm:p-8">
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-base font-semibold text-gray-900">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -75,11 +79,13 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
                 required
-                className="mt-2"
+                className="h-12 text-base border-gray-300 rounded-xl"
               />
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-base font-semibold text-gray-900">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -87,28 +93,35 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
                 required
-                className="mt-2"
+                className="h-12 text-base border-gray-300 rounded-xl"
               />
             </div>
             {error && (
-              <p className="text-sm text-red-500">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-700 font-medium">{error}</p>
+              </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700 font-semibold h-12" 
+              disabled={loading}
+              size="lg"
+            >
               {loading ? "Logging in..." : "Login"}
             </Button>
-            <p className="text-sm text-center text-muted-foreground">
+            <p className="text-sm text-center text-gray-600">
               Don't have an account?{" "}
               <button
                 type="button"
                 onClick={() => router.push("/signup")}
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 hover:text-blue-700 font-semibold underline"
               >
                 Sign up
               </button>
             </p>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
