@@ -74,7 +74,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const challengeCode = searchParams.get("challenge_code");
 
+  console.log("[eBay Webhook] Challenge code verification request received:", {
+    challengeCode: challengeCode ? "***" : null,
+    hasChallengeCode: !!challengeCode,
+  });
+
   if (!challengeCode) {
+    console.error("[eBay Webhook] Missing challenge_code parameter");
     return NextResponse.json(
       { error: "Missing challenge_code parameter" },
       { status: 400 }
@@ -84,7 +90,7 @@ export async function GET(request: NextRequest) {
   // Get verification token from environment
   const verificationToken = process.env.EBAY_VERIFICATION_TOKEN;
   if (!verificationToken) {
-    console.error("EBAY_VERIFICATION_TOKEN not configured");
+    console.error("[eBay Webhook] EBAY_VERIFICATION_TOKEN not configured");
     return NextResponse.json(
       { error: "Server configuration error" },
       { status: 500 }
@@ -94,12 +100,19 @@ export async function GET(request: NextRequest) {
   // Get the endpoint URL (full URL of this endpoint)
   const endpoint = request.url.split("?")[0]; // Remove query params for hashing
 
+  console.log("[eBay Webhook] Computing challenge response:", {
+    endpoint,
+    hasVerificationToken: !!verificationToken,
+  });
+
   // Hash: challengeCode + verificationToken + endpoint (in that order)
   const hash = createHash("sha256");
   hash.update(challengeCode);
   hash.update(verificationToken);
   hash.update(endpoint);
   const challengeResponse = hash.digest("hex");
+
+  console.log("[eBay Webhook] Challenge response computed successfully");
 
   // Return the challenge response in JSON format
   return NextResponse.json(
@@ -118,21 +131,43 @@ export async function GET(request: NextRequest) {
  * POST /api/ebay/account-deletion
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  console.log("[eBay Webhook] Account deletion notification received");
+
   try {
     // Step 1: Immediately acknowledge the notification (eBay requirement)
     // We'll process asynchronously after acknowledging
     
     // Get the signature header for verification
     const signature = request.headers.get("x-ebay-signature");
+    console.log("[eBay Webhook] Notification headers:", {
+      hasSignature: !!signature,
+      signatureLength: signature?.length || 0,
+      contentType: request.headers.get("content-type"),
+    });
     
     // Parse the notification payload
     const payload = await request.text();
+    console.log("[eBay Webhook] Payload received:", {
+      payloadLength: payload.length,
+      payloadPreview: payload.substring(0, 200),
+    });
+
     let notification: EbayAccountDeletionNotification;
     
     try {
       notification = JSON.parse(payload);
+      console.log("[eBay Webhook] Payload parsed successfully:", {
+        topic: notification.metadata.topic,
+        schemaVersion: notification.metadata.schemaVersion,
+        notificationId: notification.notification.notificationId,
+        publishAttemptCount: notification.notification.publishAttemptCount,
+      });
     } catch (error) {
-      console.error("Failed to parse eBay notification payload:", error);
+      console.error("[eBay Webhook] Failed to parse notification payload:", {
+        error: error instanceof Error ? error.message : String(error),
+        payloadPreview: payload.substring(0, 500),
+      });
       // Still acknowledge to prevent retries
       return NextResponse.json(
         { error: "Invalid payload format" },
@@ -147,8 +182,17 @@ export async function POST(request: NextRequest) {
       ? await verifyEbaySignature(signature, payload)
       : false;
 
+    console.log("[eBay Webhook] Signature verification:", {
+      hasSignature: !!signature,
+      isValid,
+      notificationId: notification.notification.notificationId,
+    });
+
     if (!isValid && signature) {
-      console.warn("eBay notification signature verification failed");
+      console.warn("[eBay Webhook] Signature verification failed:", {
+        notificationId: notification.notification.notificationId,
+        userId: notification.notification.data.userId,
+      });
       // Still acknowledge to prevent retries, but log the issue
       // In production, you might want to return 412 Precondition Failed
       // after implementing full signature verification
@@ -157,11 +201,14 @@ export async function POST(request: NextRequest) {
     // Step 3: Extract user identifiers
     const { userId, username, eiasToken } = notification.notification.data;
 
-    console.log("eBay account deletion notification received:", {
+    console.log("[eBay Webhook] Account deletion notification processed:", {
       notificationId: notification.notification.notificationId,
       userId,
-      username,
+      username: username || "N/A (using userId)",
+      eiasToken: eiasToken ? "***" : "N/A",
       eventDate: notification.notification.eventDate,
+      publishDate: notification.notification.publishDate,
+      publishAttemptCount: notification.notification.publishAttemptCount,
     });
 
     // Step 4: Delete any eBay user data from our system
@@ -184,6 +231,13 @@ export async function POST(request: NextRequest) {
 
     // Step 5: Return success acknowledgment
     // eBay accepts: 200 OK, 201 Created, 202 Accepted, or 204 No Content
+    const processingTime = Date.now() - startTime;
+    console.log("[eBay Webhook] Notification processed successfully:", {
+      notificationId: notification.notification.notificationId,
+      userId,
+      processingTimeMs: processingTime,
+    });
+
     return NextResponse.json(
       {
         status: "acknowledged",
@@ -193,7 +247,12 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error("Error processing eBay account deletion notification:", error);
+    const processingTime = Date.now() - startTime;
+    console.error("[eBay Webhook] Error processing notification:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      processingTimeMs: processingTime,
+    });
     
     // Always acknowledge to prevent eBay from retrying
     // Log the error for investigation

@@ -44,30 +44,56 @@ export async function searchEbayParts(
       limit: "15",
     });
 
-    const response = await fetch(
-      `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
-          "X-EBAY-C-ENDUSERCTX":
-            "contextualLocation=country=US,zip=37122", // Default to user location, make configurable
-        },
-      }
-    );
+    const searchUrl = `https://api.ebay.com/buy/browse/v1/item_summary/search?${params}`;
+    console.log("[eBay Parts] Searching for parts:", {
+      partName,
+      year,
+      make,
+      model,
+      trim,
+      compatibilityFilter: compatFilter,
+    });
+
+    const response = await fetch(searchUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+        "X-EBAY-C-ENDUSERCTX":
+          "contextualLocation=country=US,zip=37122", // Default to user location, make configurable
+      },
+    });
 
     if (!response.ok) {
-      console.error("eBay API error:", response.status, await response.text());
+      const errorText = await response.text();
+      console.error("[eBay Parts] API request failed:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+        partName,
+        year,
+        make,
+        model,
+      });
       return null;
     }
 
     const data = await response.json();
+    console.log("[eBay Parts] Response received:", {
+      totalResults: data.total,
+      itemSummariesCount: data.itemSummaries?.length || 0,
+      partName,
+      year,
+      make,
+      model,
+    });
 
     if (!data.itemSummaries || data.itemSummaries.length === 0) {
+      console.log("[eBay Parts] No results found for:", { partName, year, make, model });
       return null;
     }
 
     // Extract prices from results, filtering to exact compatibility matches
+    const allItems = data.itemSummaries.length;
     const listings: EbayPartResult[] = data.itemSummaries
       .filter(
         (item: any) =>
@@ -83,12 +109,25 @@ export async function searchEbayParts(
         imageUrl: item.thumbnailImages?.[0]?.imageUrl || null,
       }));
 
-    if (listings.length === 0) return null;
+    console.log("[eBay Parts] Filtered results:", {
+      totalItems: allItems,
+      compatibleItems: listings.length,
+      compatibilityBreakdown: data.itemSummaries.reduce((acc: any, item: any) => {
+        const match = item.compatibilityMatch || "UNKNOWN";
+        acc[match] = (acc[match] || 0) + 1;
+        return acc;
+      }, {}),
+    });
+
+    if (listings.length === 0) {
+      console.log("[eBay Parts] No compatible items found after filtering");
+      return null;
+    }
 
     const prices = listings.map((l) => l.price).sort((a, b) => a - b);
     const medianIndex = Math.floor(prices.length / 2);
 
-    return {
+    const result = {
       source: "ebay",
       query: `${partName} ${year} ${make} ${model}`,
       results_count: listings.length,
@@ -97,8 +136,24 @@ export async function searchEbayParts(
       price_high: prices[prices.length - 1],
       sample_listings: listings.slice(0, 5), // Keep top 5 for display
     };
+
+    console.log("[eBay Parts] Price calculation complete:", {
+      partName,
+      resultsCount: result.results_count,
+      priceRange: `$${result.price_low} - $${result.price_high}`,
+      medianPrice: `$${result.price_median}`,
+    });
+
+    return result;
   } catch (error) {
-    console.error("eBay parts search error:", error);
+    console.error("[eBay Parts] Search error:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      partName,
+      year,
+      make,
+      model,
+    });
     return null;
   }
 }
