@@ -1,12 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anthropic } from "@/lib/anthropic";
 import { supabaseAdmin } from "@/lib/supabase";
-import { AIAnalysis } from "@/lib/types";
+import { DamageDetectionResult } from "@/lib/types";
 import { createServerClient } from "@supabase/ssr";
+import { buildEstimate } from "@/lib/pricing/damage-mapper";
 
 // Increase body size limit for image uploads (default is 1MB, we need more for compressed images)
-export const maxDuration = 60; // 60 seconds for AI processing
+export const maxDuration = 90; // 90 seconds for two-step AI processing + parts lookup
 export const runtime = 'nodejs';
+
+const DAMAGE_DETECTION_SYSTEM_PROMPT = `You are an expert automotive appraiser performing a vehicle condition inspection. Your ONLY job is to identify and describe all visible damage, wear, and cosmetic issues. Do NOT estimate costs or recommend specific repairs.
+
+For each issue found, provide:
+- location: specific panel or area (e.g., "front bumper cover", "driver side fender", "rear bumper", "hood", "driver seat cushion", "windshield", "front passenger wheel")
+- damage_type: one of ["scratch", "deep_scratch", "dent_small", "dent_large", "paint_chip", "paint_fade", "clear_coat_peel", "rust_spot", "rust_heavy", "crack", "hole", "tear", "stain", "burn", "curb_rash", "broken", "missing", "foggy", "discolored"]
+- severity: "minor" | "moderate" | "severe"
+- size_estimate: approximate size in inches (e.g., "2 inch", "6 inch", "full panel")
+- description: 1-2 sentence description of what you observe
+- requires_part_replacement: true | false (true if the part needs replacing rather than repairing)
+- part_name: if requires_part_replacement is true, the common aftermarket part name for search purposes (e.g., "front bumper cover", "fender", "headlight assembly", "tail light assembly", "side mirror", "hood", "grille", "wheel rim"). Use standard part naming that would appear in parts catalogs. null if repair only.
+- photo_index: which photo this was found in (0-indexed)
+
+Also assess:
+- exterior_condition: "excellent" | "good" | "fair" | "poor"
+- interior_condition: "excellent" | "good" | "fair" | "poor"
+- mechanical_indicators: any visible mechanical issues (fluid leaks, worn belts, tire wear, exhaust damage, etc.)
+
+Be thorough. Check every panel, every wheel, all glass, all lights, mirrors, trim pieces, interior surfaces, and dashboard.
+
+Respond ONLY in JSON:
+{
+  "exterior_condition": "string",
+  "interior_condition": "string",
+  "mechanical_indicators": ["string"],
+  "items": [
+    {
+      "id": "string (uuid)",
+      "location": "string",
+      "damage_type": "string",
+      "severity": "minor" | "moderate" | "severe",
+      "size_estimate": "string",
+      "description": "string",
+      "requires_part_replacement": boolean,
+      "part_name": "string | null",
+      "photo_index": number
+    }
+  ]
+}`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,7 +109,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prepare images for Claude
+    // Ensure profile exists before creating inspection
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, labor_rate_tier")
+      .eq("id", user.id)
+      .single();
+
+    if (!existingProfile) {
+      // Create profile if it doesn't exist
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: user.id,
+          dealership_name: user.user_metadata?.dealership_name || "",
+        });
+
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        return NextResponse.json(
+          { error: "Failed to create user profile. Please contact support." },
+          { status: 500 }
+        );
+      }
+    }
+
+    const laborRateTier = existingProfile?.labor_rate_tier || "medium";
+
+    // ============================================
+    // STEP 1: Damage Detection (Claude Vision)
+    // ============================================
     const imageContents = photos.map((photo: { base64: string; station: string }, index: number) => ({
       type: "image" as const,
       source: {
@@ -79,67 +148,15 @@ export async function POST(request: NextRequest) {
       },
     }));
 
-    // Create user message with numbered photos (no station labels)
-    const userMessage = `Please analyze these ${photos.length} vehicle photos. They are unlabeled, so please identify the vehicle areas and damage from the images themselves.
+    const userMessage = `Analyze all photos and identify every instance of damage or wear.
 
 Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ""}
 Mileage: ${vehicle.mileage}`;
 
-    // System prompt
-    const systemPrompt = `You are an expert automotive appraiser and reconditioning cost estimator for auto dealers. You are analyzing photos of a used vehicle to identify all visible damage, wear, and cosmetic issues, then estimating reconditioning costs.
-
-Analyze all provided photos carefully. For each issue found, provide:
-- Location (e.g., "front bumper", "driver seat", "rear passenger door")
-- Damage type (e.g., "scratch", "dent", "paint chip", "stain", "tear", "curb rash", "crack", "fading", "rust")
-- Severity: minor | moderate | severe
-- Recommended repair (e.g., "touch-up paint", "PDR", "sand and respray panel", "replace bumper cover", "interior shampoo", "leather repair", "windshield replacement")
-- Estimated cost range (low and high, in USD)
-
-Also assess overall vehicle condition:
-- Exterior condition: excellent | good | fair | poor
-- Interior condition: excellent | good | fair | poor
-- Estimated total reconditioning cost (low and high)
-
-Be specific and realistic with costs based on typical US dealer reconditioning rates. Account for the vehicle's make/model — luxury brands cost more.
-
-Respond ONLY in the following JSON format, no markdown, no preamble:
-{
-  "vehicle": {
-    "year": number,
-    "make": "string",
-    "model": "string",
-    "trim": "string",
-    "mileage": number
-  },
-  "exterior_condition": "excellent" | "good" | "fair" | "poor",
-  "interior_condition": "excellent" | "good" | "fair" | "poor",
-  "items": [
-    {
-      "id": "string (uuid)",
-      "location": "string",
-      "damage_type": "string",
-      "severity": "minor" | "moderate" | "severe",
-      "description": "string (1-2 sentence description of what you see)",
-      "recommended_repair": "string",
-      "cost_low": number,
-      "cost_high": number,
-      "photo_index": number
-    }
-  ],
-  "summary": {
-    "total_items": number,
-    "total_cost_low": number,
-    "total_cost_high": number,
-    "top_priority_repairs": ["string", "string", "string"],
-    "notes": "string (any overall observations or recommendations)"
-  }
-}`;
-
-    // Call Claude API with Opus 4.6 model
-    const message = await anthropic.messages.create({
+    const detectionMessage = await anthropic.messages.create({
       model: "claude-opus-4-6",
       max_tokens: 4096,
-      system: systemPrompt,
+      system: DAMAGE_DETECTION_SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
@@ -155,53 +172,47 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
     });
 
     // Extract JSON from response
-    let analysisText = "";
-    if (message.content[0].type === "text") {
-      analysisText = message.content[0].text;
+    let detectionText = "";
+    if (detectionMessage.content[0].type === "text") {
+      detectionText = detectionMessage.content[0].text;
     }
 
     // Clean up markdown code fences if present
-    analysisText = analysisText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    detectionText = detectionText.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
-    let analysis: AIAnalysis;
+    let detection: DamageDetectionResult;
     try {
-      analysis = JSON.parse(analysisText);
+      detection = JSON.parse(detectionText);
+      
+      // Ensure all items have UUIDs
+      detection.items = detection.items.map((item) => ({
+        ...item,
+        id: item.id || crypto.randomUUID(),
+      }));
     } catch (error) {
-      console.error("Failed to parse Claude response:", analysisText);
+      console.error("Failed to parse Claude detection response:", detectionText);
       return NextResponse.json(
         { error: "Failed to parse AI response" },
         { status: 500 }
       );
     }
 
-    // Ensure profile exists before creating inspection
-    // Only create profile for authenticated users (userId has been verified above)
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .single();
+    // ============================================
+    // STEP 2: Cost Estimation (Deterministic + eBay)
+    // ============================================
+    const estimateItems = await buildEstimate(
+      detection.items,
+      vehicle,
+      laborRateTier
+    );
 
-    if (!existingProfile) {
-      // Create profile if it doesn't exist (fallback for users who signed up before profile creation was added)
-      // This is safe because we've verified the user is authenticated
-      const { error: profileError } = await supabaseAdmin
-        .from("profiles")
-        .insert({
-          id: user.id,
-          dealership_name: user.user_metadata?.dealership_name || "", // Get from user metadata if available
-        });
+    // Calculate totals
+    const totalLow = estimateItems.reduce((sum, item) => sum + item.cost_low, 0);
+    const totalHigh = estimateItems.reduce((sum, item) => sum + item.cost_high, 0);
 
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-        return NextResponse.json(
-          { error: "Failed to create user profile. Please contact support." },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Store in Supabase (use authenticated user.id, not userId from request)
+    // ============================================
+    // Store in Supabase
+    // ============================================
     const { data: inspection, error: inspectionError } = await supabaseAdmin
       .from("inspections")
       .insert({
@@ -212,11 +223,27 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
         model: vehicle.model,
         trim: vehicle.trim,
         mileage: vehicle.mileage,
-        exterior_condition: analysis.exterior_condition,
-        interior_condition: analysis.interior_condition,
-        total_cost_low: analysis.summary.total_cost_low,
-        total_cost_high: analysis.summary.total_cost_high,
-        ai_analysis: analysis,
+        exterior_condition: detection.exterior_condition,
+        interior_condition: detection.interior_condition,
+        total_cost_low: totalLow,
+        total_cost_high: totalHigh,
+        ai_analysis: {
+          vehicle,
+          exterior_condition: detection.exterior_condition,
+          interior_condition: detection.interior_condition,
+          mechanical_indicators: detection.mechanical_indicators,
+          items: detection.items,
+          summary: {
+            total_items: estimateItems.length,
+            total_cost_low: totalLow,
+            total_cost_high: totalHigh,
+            top_priority_repairs: estimateItems
+              .filter((i) => i.severity === "severe")
+              .slice(0, 3)
+              .map((i) => i.recommended_repair),
+            notes: `Analysis completed with ${estimateItems.filter((i) => i.pricing_source === "ebay").length} items priced from live market data.`,
+          },
+        },
       })
       .select()
       .single();
@@ -243,7 +270,7 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
           });
 
         if (!uploadError && uploadData) {
-          // Save photo record (use photo_1, photo_2, etc. as station identifier)
+          // Save photo record
           await supabaseAdmin.from("inspection_photos").insert({
             inspection_id: inspection.id,
             station: photo.station || `photo_${index + 1}`,
@@ -256,9 +283,9 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
       })
     );
 
-    // Create estimate items
+    // Create estimate items with new fields
     await supabaseAdmin.from("estimate_items").insert(
-      analysis.items.map((item) => ({
+      estimateItems.map((item) => ({
         inspection_id: inspection.id,
         location: item.location,
         damage_type: item.damage_type,
@@ -267,7 +294,12 @@ Respond ONLY in the following JSON format, no markdown, no preamble:
         recommended_repair: item.recommended_repair,
         cost_low: item.cost_low,
         cost_high: item.cost_high,
-        is_included: true,
+        parts_cost_low: item.parts_cost_low,
+        parts_cost_high: item.parts_cost_high,
+        labor_cost_low: item.labor_cost_low,
+        labor_cost_high: item.labor_cost_high,
+        pricing_source: item.pricing_source,
+        is_included: item.is_included,
         photo_index: item.photo_index,
       }))
     );

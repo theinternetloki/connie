@@ -246,33 +246,80 @@ export default function ReportPage() {
                     <p className="text-sm font-medium mb-2">
                       Repair: {item.recommended_repair}
                     </p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">Cost:</span>
-                      <Input
-                        type="number"
-                        value={item.cost_low}
-                        onChange={(e) =>
-                          updateItemCost(
-                            item.id,
-                            parseFloat(e.target.value) || 0,
-                            item.cost_high
-                          )
-                        }
-                        className="w-24 h-8"
-                      />
-                      <span>–</span>
-                      <Input
-                        type="number"
-                        value={item.cost_high}
-                        onChange={(e) =>
-                          updateItemCost(
-                            item.id,
-                            item.cost_low,
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        className="w-24 h-8"
-                      />
+                    {item.pricing_source && (
+                      <Badge
+                        variant={item.pricing_source === "ebay" ? "default" : "secondary"}
+                        className={`mb-2 ${
+                          item.pricing_source === "ebay"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : ""
+                        }`}
+                      >
+                        {item.pricing_source === "ebay"
+                          ? "Live Market Price"
+                          : "Estimated"}
+                      </Badge>
+                    )}
+                    <div className="space-y-2">
+                      {(item.parts_cost_low !== undefined ||
+                        item.labor_cost_low !== undefined) && (
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Parts:</span>
+                            <div className="font-medium">
+                              $
+                              {(
+                                item.parts_cost_low || 0
+                              ).toLocaleString()}{" "}
+                              – $
+                              {(
+                                item.parts_cost_high || 0
+                              ).toLocaleString()}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Labor:</span>
+                            <div className="font-medium">
+                              $
+                              {(
+                                item.labor_cost_low || 0
+                              ).toLocaleString()}{" "}
+                              – $
+                              {(
+                                item.labor_cost_high || 0
+                              ).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 pt-2 border-t">
+                        <span className="text-sm font-semibold">Total:</span>
+                        <Input
+                          type="number"
+                          value={item.cost_low}
+                          onChange={(e) =>
+                            updateItemCost(
+                              item.id,
+                              parseFloat(e.target.value) || 0,
+                              item.cost_high
+                            )
+                          }
+                          className="w-24 h-8"
+                        />
+                        <span>–</span>
+                        <Input
+                          type="number"
+                          value={item.cost_high}
+                          onChange={(e) =>
+                            updateItemCost(
+                              item.id,
+                              item.cost_low,
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="w-24 h-8"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -323,6 +370,18 @@ export default function ReportPage() {
             View Dashboard
           </Button>
         </div>
+
+        {/* Summary Footer */}
+        {items.length > 0 && (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-center text-muted-foreground">
+                {items.filter((i) => i.pricing_source === "ebay").length} of{" "}
+                {items.length} items priced with live market data
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Disclaimer */}
         <p className="text-xs text-center text-muted-foreground">

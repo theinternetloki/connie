@@ -19,6 +19,26 @@ export interface DamageItem {
   photo_index: number;
 }
 
+// New damage detection interface (from Claude)
+export interface DamageDetectionItem {
+  id: string;
+  location: string;
+  damage_type: string;
+  severity: "minor" | "moderate" | "severe";
+  size_estimate: string;
+  description: string;
+  requires_part_replacement: boolean;
+  part_name: string | null;
+  photo_index: number;
+}
+
+export interface DamageDetectionResult {
+  exterior_condition: "excellent" | "good" | "fair" | "poor";
+  interior_condition: "excellent" | "good" | "fair" | "poor";
+  mechanical_indicators: string[];
+  items: DamageDetectionItem[];
+}
+
 export interface AnalysisSummary {
   total_items: number;
   total_cost_low: number;
@@ -72,6 +92,11 @@ export interface EstimateItem {
   recommended_repair: string;
   cost_low: number;
   cost_high: number;
+  parts_cost_low?: number;
+  parts_cost_high?: number;
+  labor_cost_low?: number;
+  labor_cost_high?: number;
+  pricing_source?: string;
   is_included: boolean;
   photo_index: number;
   created_at: string;
