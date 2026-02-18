@@ -24,6 +24,8 @@ alter table estimate_items add column if not exists parts_cost_high numeric defa
 alter table estimate_items add column if not exists labor_cost_low numeric default 0;
 alter table estimate_items add column if not exists labor_cost_high numeric default 0;
 alter table estimate_items add column if not exists pricing_source text default 'static';
+alter table estimate_items add column if not exists product_link text;
+alter table estimate_items add column if not exists product_link_label text;
 
 -- Add labor rate tier to profiles
 alter table profiles add column if not exists labor_rate_tier text default 'medium';

@@ -17,8 +17,22 @@ For each issue found, provide:
 - severity: "minor" | "moderate" | "severe"
 - size_estimate: approximate size in inches (e.g., "2 inch", "6 inch", "full panel")
 - description: 1-2 sentence description of what you observe
-- requires_part_replacement: true | false (true if the part needs replacing rather than repairing)
-- part_name: if requires_part_replacement is true, the common aftermarket part name for search purposes (e.g., "front bumper cover", "fender", "headlight assembly", "tail light assembly", "side mirror", "hood", "grille", "wheel rim"). Use standard part naming that would appear in parts catalogs. null if repair only.
+- requires_part_replacement: true | false
+  **IMPORTANT**: Set to true if the part cannot be repaired and must be replaced. Common scenarios requiring replacement:
+  * Broken or cracked parts (bumpers, lights, mirrors, glass)
+  * Missing parts entirely
+  * Severe damage that makes repair impractical (large holes, extensive cracks, structural damage)
+  * Parts that are beyond repair (heavily rusted panels, shattered glass, broken plastic components)
+  * Severe curb rash on wheels that cannot be refinished
+  * Foggy/cloudy headlights that cannot be restored
+  Set to false only for repairable damage (scratches, dents, chips, stains, minor wear)
+- part_name: if requires_part_replacement is true, provide the common aftermarket part name for search purposes. Use standard part naming that would appear in parts catalogs:
+  * Body panels: "front bumper cover", "rear bumper cover", "fender", "hood", "trunk lid", "door shell", "quarter panel", "rocker panel"
+  * Lights: "headlight assembly", "tail light assembly", "fog light"
+  * Glass: "windshield", "rear window", "door glass"
+  * Exterior: "side mirror", "grille", "wheel rim", "door handle"
+  * Other: "radiator support", "bumper reinforcement", "antenna"
+  If requires_part_replacement is false, set to null.
 - photo_index: which photo this was found in (0-indexed)
 
 Also assess:
@@ -142,7 +156,15 @@ export async function POST(request: NextRequest) {
     const userMessage = `Analyze all photos and identify every instance of damage or wear.
 
 Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim || ""}
-Mileage: ${vehicle.mileage}`;
+Mileage: ${vehicle.mileage}
+
+IMPORTANT: When you identify damage that requires part replacement (broken, cracked, missing, or severely damaged parts), be sure to set requires_part_replacement: true and provide the appropriate part_name. Common examples:
+- Broken or cracked bumpers → requires_part_replacement: true, part_name: "front bumper cover" or "rear bumper cover"
+- Cracked or shattered glass → requires_part_replacement: true, part_name: "windshield", "rear window", or "door glass"
+- Broken or missing lights → requires_part_replacement: true, part_name: "headlight assembly" or "tail light assembly"
+- Broken or missing mirrors → requires_part_replacement: true, part_name: "side mirror"
+- Severely damaged panels with holes or large cracks → requires_part_replacement: true, part_name: appropriate panel name
+- Missing parts → requires_part_replacement: true, part_name: the missing part name`;
 
     const detectionMessage = await anthropic.messages.create({
       model: "claude-opus-4-6",
@@ -305,6 +327,8 @@ Mileage: ${vehicle.mileage}`;
         labor_cost_low: item.labor_cost_low,
         labor_cost_high: item.labor_cost_high,
         pricing_source: item.pricing_source,
+        product_link: item.product_link,
+        product_link_label: item.product_link_label,
         is_included: item.is_included,
         photo_index: item.photo_index,
       }))

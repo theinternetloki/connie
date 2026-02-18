@@ -11,7 +11,7 @@ import { Inspection, EstimateItem } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
-import { Download, Share2, Plus } from "lucide-react";
+import { Download, Share2, Plus, ExternalLink, ShoppingCart } from "lucide-react";
 
 export default function ReportPage() {
   const params = useParams();
@@ -139,12 +139,24 @@ export default function ReportPage() {
     }
   };
 
-  const includedItems = items.filter((item) => item.is_included);
-  const totalLow = includedItems.reduce((sum, item) => sum + item.cost_low, 0);
-  const totalHigh = includedItems.reduce(
-    (sum, item) => sum + item.cost_high,
-    0
+  // Separate items into necessary (moderate/severe) and optional (minor)
+  const necessaryItems = items.filter(
+    (item) => item.severity === "moderate" || item.severity === "severe"
   );
+  const optionalItems = items.filter((item) => item.severity === "minor");
+
+  // Calculate totals for included items in each category
+  const includedNecessary = necessaryItems.filter((item) => item.is_included);
+  const includedOptional = optionalItems.filter((item) => item.is_included);
+
+  const necessaryTotalLow = includedNecessary.reduce((sum, item) => sum + item.cost_low, 0);
+  const necessaryTotalHigh = includedNecessary.reduce((sum, item) => sum + item.cost_high, 0);
+
+  const optionalTotalLow = includedOptional.reduce((sum, item) => sum + item.cost_low, 0);
+  const optionalTotalHigh = includedOptional.reduce((sum, item) => sum + item.cost_high, 0);
+
+  const totalLow = necessaryTotalLow + optionalTotalLow;
+  const totalHigh = necessaryTotalHigh + optionalTotalHigh;
 
   if (authLoading || loading) {
     return (
@@ -202,23 +214,60 @@ export default function ReportPage() {
                 Interior: {inspection.interior_condition}
               </Badge>
             </div>
-            <div className="text-3xl font-bold">
-              ${totalLow.toLocaleString()} – ${totalHigh.toLocaleString()}
+            <div className="space-y-3">
+              <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                    Necessary Repairs
+                  </span>
+                  <Badge variant="default" className="bg-blue-600">
+                    {includedNecessary.length} items
+                  </Badge>
+                </div>
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+                  ${necessaryTotalLow.toLocaleString()} – ${necessaryTotalHigh.toLocaleString()}
+                </div>
+              </div>
+              {includedOptional.length > 0 && (
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-muted-foreground">
+                      Optional Repairs
+                    </span>
+                    <Badge variant="secondary">
+                      {includedOptional.length} items
+                    </Badge>
+                  </div>
+                  <div className="text-xl font-semibold text-muted-foreground">
+                    ${optionalTotalLow.toLocaleString()} – ${optionalTotalHigh.toLocaleString()}
+                  </div>
+                </div>
+              )}
+              <div className="pt-2 border-t">
+                <div className="text-2xl font-bold">
+                  ${totalLow.toLocaleString()} – ${totalHigh.toLocaleString()}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Total estimated reconditioning cost
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Estimated reconditioning cost
-            </p>
           </CardContent>
         </Card>
 
-        {/* Damage Items */}
-        <Card>
+        {/* Necessary Repairs */}
+        <Card className="border-blue-200 dark:border-blue-800">
           <CardHeader>
-            <CardTitle>Damage Items</CardTitle>
+            <CardTitle className="text-blue-900 dark:text-blue-100">
+              Necessary Repairs
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Moderate and severe damage that should be addressed
+            </p>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {items.map((item) => (
+              {necessaryItems.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-start gap-4 p-4 border rounded-lg"
@@ -320,6 +369,20 @@ export default function ReportPage() {
                           className="w-24 h-8"
                         />
                       </div>
+                      {item.product_link && (
+                        <div className="pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => window.open(item.product_link, "_blank")}
+                          >
+                            <ShoppingCart className="mr-2 h-4 w-4" />
+                            {item.product_link_label || "View Product"}
+                            <ExternalLink className="ml-2 h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -327,6 +390,142 @@ export default function ReportPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Optional Repairs */}
+        {optionalItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-muted-foreground">Optional Repairs</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Minor cosmetic issues that can be addressed if desired
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {optionalItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-4 p-4 border rounded-lg opacity-75"
+                  >
+                    <Checkbox
+                      checked={item.is_included}
+                      onCheckedChange={() =>
+                        toggleItem(item.id, item.is_included)
+                      }
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h4 className="font-semibold">{item.location}</h4>
+                        <Badge variant={getSeverityColor(item.severity)}>
+                          {item.severity}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {item.damage_type}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {item.description}
+                      </p>
+                      <p className="text-sm font-medium mb-2">
+                        Repair: {item.recommended_repair}
+                      </p>
+                      {item.pricing_source && (
+                        <Badge
+                          variant={item.pricing_source === "ebay" ? "default" : "secondary"}
+                          className={`mb-2 ${
+                            item.pricing_source === "ebay"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              : ""
+                          }`}
+                        >
+                          {item.pricing_source === "ebay"
+                            ? "Live Market Price"
+                            : "Estimated"}
+                        </Badge>
+                      )}
+                      <div className="space-y-2">
+                        {(item.parts_cost_low !== undefined ||
+                          item.labor_cost_low !== undefined) && (
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Parts:</span>
+                              <div className="font-medium">
+                                $
+                                {(
+                                  item.parts_cost_low || 0
+                                ).toLocaleString()}{" "}
+                                – $
+                                {(
+                                  item.parts_cost_high || 0
+                                ).toLocaleString()}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Labor:</span>
+                              <div className="font-medium">
+                                $
+                                {(
+                                  item.labor_cost_low || 0
+                                ).toLocaleString()}{" "}
+                                – $
+                                {(
+                                  item.labor_cost_high || 0
+                                ).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 pt-2 border-t">
+                          <span className="text-sm font-semibold">Total:</span>
+                          <Input
+                            type="number"
+                            value={item.cost_low}
+                            onChange={(e) =>
+                              updateItemCost(
+                                item.id,
+                                parseFloat(e.target.value) || 0,
+                                item.cost_high
+                              )
+                            }
+                            className="w-24 h-8"
+                          />
+                          <span>–</span>
+                          <Input
+                            type="number"
+                            value={item.cost_high}
+                            onChange={(e) =>
+                              updateItemCost(
+                                item.id,
+                                item.cost_low,
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-24 h-8"
+                          />
+                        </div>
+                        {item.product_link && (
+                          <div className="pt-2 border-t">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => window.open(item.product_link, "_blank")}
+                            >
+                              <ShoppingCart className="mr-2 h-4 w-4" />
+                              {item.product_link_label || "View Product"}
+                              <ExternalLink className="ml-2 h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Photo Gallery */}
         {photos.length > 0 && (
@@ -375,10 +574,22 @@ export default function ReportPage() {
         {items.length > 0 && (
           <Card>
             <CardContent className="p-4">
-              <p className="text-sm text-center text-muted-foreground">
-                {items.filter((i) => i.pricing_source === "ebay").length} of{" "}
-                {items.length} items priced with live market data
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-center text-muted-foreground">
+                  {items.filter((i) => i.pricing_source === "ebay").length} of{" "}
+                  {items.length} items priced with live market data
+                </p>
+                <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+                  <span>
+                    {necessaryItems.length} necessary repairs
+                  </span>
+                  {optionalItems.length > 0 && (
+                    <span>
+                      {optionalItems.length} optional repairs
+                    </span>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}

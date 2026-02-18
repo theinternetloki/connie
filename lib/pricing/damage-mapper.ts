@@ -2,6 +2,7 @@ import { REPAIR_COSTS, INSTALLATION_LABOR } from "./repair-costs";
 import { getTierMultiplier } from "./vehicle-tiers";
 import { getLaborRateMultiplier } from "./labor-rates";
 import { getPartPrice } from "../parts-cache";
+import { getCleaningProductLink } from "../product-links";
 
 export interface DamageItem {
   id: string;
@@ -29,6 +30,8 @@ export interface EstimateLineItem {
   cost_low: number;
   cost_high: number;
   pricing_source: string; // "ebay" | "static"
+  product_link?: string; // Link to replacement part (eBay) or cleaning product (Amazon)
+  product_link_label?: string; // Label for the product link
   is_included: boolean;
   photo_index: number;
 }
@@ -160,6 +163,10 @@ export async function buildEstimate(
     let pricingSource = "static";
     let repairDescription = "";
 
+    // Generate product link
+    let productLink: string | undefined;
+    let productLinkLabel: string | undefined;
+
     if (item.requires_part_replacement && item.part_name) {
       console.log("[Damage Mapper] Processing part replacement:", {
         location: item.location,
@@ -182,11 +189,14 @@ export async function buildEstimate(
         price_low: partPrice.price_low,
         price_high: partPrice.price_high,
         price_median: partPrice.price_median,
+        hasProductLink: !!partPrice.product_link,
       });
 
       pricingSource = partPrice.source;
       partsLow = partPrice.price_low;
       partsHigh = partPrice.price_high;
+      productLink = partPrice.product_link;
+      productLinkLabel = "View Replacement Part on eBay";
 
       // Apply tier multiplier to static parts only (eBay prices already reflect market)
       if (partPrice.source === "static") {
@@ -230,7 +240,17 @@ export async function buildEstimate(
         partsHigh = repairCost.materials_high;
         repairDescription = repairCost.description;
       }
+
+      // For repairs, get cleaning/touch-up product link
+      const cleaningLink = getCleaningProductLink(repairType, item.location);
+      if (cleaningLink) {
+        productLink = cleaningLink.url;
+        productLinkLabel = cleaningLink.label;
+      }
     }
+
+    // Only auto-include moderate and severe items (minor items are optional)
+    const isIncluded = item.severity !== "minor";
 
     return {
       id: item.id,
@@ -246,7 +266,9 @@ export async function buildEstimate(
       cost_low: partsLow + laborLow,
       cost_high: partsHigh + laborHigh,
       pricing_source: pricingSource,
-      is_included: true,
+      product_link: productLink,
+      product_link_label: productLinkLabel,
+      is_included: isIncluded,
       photo_index: item.photo_index || 0,
     };
   });

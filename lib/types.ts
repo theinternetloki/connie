@@ -97,6 +97,8 @@ export interface EstimateItem {
   labor_cost_low?: number;
   labor_cost_high?: number;
   pricing_source?: string;
+  product_link?: string;
+  product_link_label?: string;
   is_included: boolean;
   photo_index: number;
   created_at: string;
