@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode, Html5QrcodeScanType, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Camera, X } from "lucide-react";
 
@@ -63,8 +63,7 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
               };
             },
             aspectRatio: 1.0,
-            disableFlip: false, // Allow rotation for better detection
-            supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+            disableFlip: false // Allow rotation for better detection
           },
           (decodedText) => {
             // Validate that it looks like a VIN (alphanumeric, typically 17 chars but can be shorter)
