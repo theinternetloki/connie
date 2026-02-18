@@ -17,7 +17,7 @@ import { decodeVIN } from "@/lib/vin";
 import { Camera } from "lucide-react";
 
 // CRITICAL: Dynamic import with ssr: false
-// react-zxing and @zxing/library use browser APIs (getUserMedia, canvas, etc.)
+// @zxing/browser and @zxing/library use browser APIs (getUserMedia, canvas, etc.)
 // They CANNOT run during server-side rendering.
 const VinScanner = dynamic(() => import("@/components/vehicle/VinScanner"), {
   ssr: false,

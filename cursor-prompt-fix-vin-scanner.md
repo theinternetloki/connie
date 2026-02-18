@@ -1,13 +1,37 @@
+# Cursor Prompt: Fix VIN Barcode Scanner (Not Capturing Data)
+
+## The Problem
+
+The VIN barcode scanner appears (camera feed is visible) but never successfully decodes a barcode. This is a known issue with using `react-zxing` for 1D barcodes like Code 39 and Code 128.
+
+**Root cause:** `react-zxing` does not expose the `hints` parameter to the underlying ZXing `BrowserMultiFormatReader`. Without hints, ZXing uses its default multi-format reader which is optimized for QR codes and struggles with 1D barcodes — especially Code 39 (the most common VIN barcode format). There are also well-documented issues in `@zxing/library` GitHub issues where Code 39 scanning silently fails without specific format hints.
+
+## The Fix
+
+**Remove `react-zxing`. Use `@zxing/browser` and `@zxing/library` directly.** This gives us full control over the decoder hints, camera resolution, and scanning lifecycle.
+
+### Step 1: Update packages
+
+```bash
+npm uninstall react-zxing
+npm install @zxing/browser@latest @zxing/library@latest
+```
+
+### Step 2: Replace VinScanner component
+
+Delete the existing VinScanner component and replace it with this implementation that uses `@zxing/browser` directly.
+
+**Create `components/vehicle/VinScanner.tsx`:**
+
+```tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   BrowserMultiFormatReader,
   BarcodeFormat,
 } from "@zxing/browser";
 import { DecodeHintType } from "@zxing/library";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
 
 // VIN: exactly 17 chars, A-Z 0-9, excluding I, O, Q
 function isValidVin(value: string): boolean {
@@ -217,30 +241,27 @@ export default function VinScanner({ onScan, onClose }: VinScannerProps) {
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/80 z-10">
-        <Button
+        <button
           onClick={onClose}
-          variant="ghost"
-          size="sm"
-          className="text-white hover:bg-white/20"
+          className="text-white text-sm font-medium px-3 py-2"
         >
-          <X className="h-4 w-4 mr-1" />
-          Cancel
-        </Button>
-        <span className="text-white text-sm font-semibold">Scan VIN Barcode</span>
+          ✕ Cancel
+        </button>
+        <span className="text-white text-sm font-medium">Scan VIN Barcode</span>
         <div className="w-16" /> {/* Spacer for alignment */}
       </div>
 
       {/* Camera feed */}
       {error ? (
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center space-y-4">
+          <div className="text-center">
             <p className="text-red-400 text-lg mb-4">{error}</p>
-            <Button
+            <button
               onClick={onClose}
-              className="bg-white text-black hover:bg-gray-100"
+              className="bg-white text-black px-6 py-3 rounded-lg font-medium"
             >
               Go Back
-            </Button>
+            </button>
           </div>
         </div>
       ) : (
@@ -302,15 +323,91 @@ export default function VinScanner({ onScan, onClose }: VinScannerProps) {
       )}
 
       {/* Manual entry fallback — always visible */}
-      <div className="p-4 bg-black/90">
-        <Button
+      <div className="p-4 bg-black/90 safe-area-bottom">
+        <button
           onClick={onClose}
-          variant="ghost"
-          className="w-full text-center text-white/70 hover:text-white hover:bg-white/10 text-sm"
+          className="w-full text-center text-white/70 text-sm py-3 underline"
         >
           Can't scan? Enter VIN manually
-        </Button>
+        </button>
       </div>
     </div>
   );
 }
+```
+
+### Step 3: Keep the dynamic import in the parent page
+
+The parent page (`vehicle-info/page.tsx`) should still use dynamic import with `ssr: false`:
+
+```tsx
+import dynamic from "next/dynamic";
+
+const VinScanner = dynamic(
+  () => import("@/components/vehicle/VinScanner"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+        <p className="text-white">Loading scanner...</p>
+      </div>
+    ),
+  }
+);
+```
+
+This has NOT changed from before — it's still required because `@zxing/browser` uses browser APIs that crash during server-side rendering.
+
+---
+
+## Why This Works When `react-zxing` Didn't
+
+| Issue | `react-zxing` | Direct `@zxing/browser` |
+|---|---|---|
+| **Hint configuration** | No way to pass `DecodeHintType.POSSIBLE_FORMATS` to the reader. The hook creates `BrowserMultiFormatReader` internally with no hints. | We pass a hints `Map` directly to the constructor, restricting formats to Code 39, Code 128, PDF417, Data Matrix, and QR. |
+| **Code 39 support** | Multi-format reader without format hints deprioritizes 1D formats and often fails on Code 39 entirely (multiple open GitHub issues). | Explicitly listing `BarcodeFormat.CODE_39` forces ZXing to use the Code 39 decoder on every frame. |
+| **Camera selection** | Uses `facingMode: "environment"` constraint, which on multi-camera phones often selects the ultra-wide lens. | Enumerates devices, identifies cameras by label, and selects the main rear camera — avoiding the ultra-wide fisheye. |
+| **Decode timing** | Default `timeBetweenDecodingAttempts` may be too slow. | Explicitly set to 200ms (5 scans/sec). |
+| **Cleanup** | Hook cleanup sometimes fails to stop the camera stream, leaving the camera light on. | Explicit triple cleanup: stop the decode controls, reset the reader, AND stop all media tracks. |
+
+---
+
+## Troubleshooting
+
+### "Camera appears but still no scan"
+
+1. **Check debug info line** — there's a green debug text at the bottom of the scanner showing status. It should say "Scanning... point at VIN barcode" when active.
+
+2. **Test with a generated barcode first** — go to https://www.onlinetoolcenter.com/vin-barcode-generator/ and generate a Code 39 barcode for VIN `1HGCM82633A004352`. Display it on another screen and scan it. If this works, the issue is with the physical barcode quality (faded, behind tinted glass, etc.), not the scanner.
+
+3. **Check camera distance** — VIN barcodes on windshields are often quite small. The phone needs to be 4-8 inches away, and the barcode should fill most of the scan area. Too close = out of focus. Too far = too small to decode.
+
+4. **Try different lighting** — windshield glare is the #1 enemy. Move to a shaded area or change the angle to reduce reflections.
+
+5. **Check which camera is selected** — if on a Samsung phone, the ultra-wide lens makes barcodes look tiny and distorted. The camera selection logic should handle this, but you can verify by checking if the video feed looks "fisheye."
+
+### "Camera permission denied"
+
+On iOS, camera access only works in Safari (not Chrome or Firefox — they use WKWebView which has limited camera support). On Android, it works in Chrome, Firefox, and Edge. Camera requires HTTPS (except localhost).
+
+### "Works in dev but not in production"
+
+Make sure your production URL is HTTPS. `getUserMedia` is blocked on non-secure origins.
+
+---
+
+## Testing Checklist
+
+- [ ] Scanner opens and shows camera feed on iOS Safari
+- [ ] Scanner opens and shows camera feed on Android Chrome
+- [ ] Successfully scans a Code 39 barcode (generated, displayed on screen)
+- [ ] Successfully scans a Code 128 barcode (generated)
+- [ ] Successfully scans a QR code containing a VIN
+- [ ] Ignores non-VIN barcodes (e.g., scan a random product barcode — should not trigger onScan)
+- [ ] VIN is correctly cleaned (asterisks stripped, uppercased)
+- [ ] Camera stops when a valid VIN is found
+- [ ] Camera stops when user taps Cancel
+- [ ] Camera stops when component unmounts (navigate away)
+- [ ] Camera light turns off after closing scanner
+- [ ] Manual entry fallback works
+- [ ] Debug info shows scanning status
