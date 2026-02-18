@@ -15,9 +15,18 @@ export async function getEbayAccessToken(): Promise<string> {
   const clientSecret = process.env.EBAY_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error("[eBay Auth] API credentials not configured");
+    console.error("[eBay Auth] API credentials not configured:", {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+    });
     throw new Error("eBay API credentials not configured");
   }
+
+  console.log("[eBay Auth] Credentials configured:", {
+    hasClientId: !!clientId,
+    hasClientSecret: !!clientSecret,
+    clientIdLength: clientId?.length || 0,
+  });
 
   console.log("[eBay Auth] Requesting new access token");
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");

@@ -180,6 +180,21 @@ Mileage: ${vehicle.mileage}`;
         ...item,
         id: item.id || crypto.randomUUID(),
       }));
+
+      // Log detection results for debugging
+      console.log("[Analyze] Damage detection completed:", {
+        itemCount: detection.items.length,
+        itemsRequiringParts: detection.items.filter(
+          (item) => item.requires_part_replacement && item.part_name
+        ).length,
+        partReplacementItems: detection.items
+          .filter((item) => item.requires_part_replacement && item.part_name)
+          .map((item) => ({
+            location: item.location,
+            part_name: item.part_name,
+            damage_type: item.damage_type,
+          })),
+      });
     } catch (error) {
       console.error("Failed to parse Claude detection response:", detectionText);
       return NextResponse.json(

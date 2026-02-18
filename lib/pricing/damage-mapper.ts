@@ -126,6 +126,26 @@ export async function buildEstimate(
   vehicle: { year: number; make: string; model: string; trim?: string },
   laborRateTier: string = "medium"
 ): Promise<EstimateLineItem[]> {
+  console.log("[Damage Mapper] Building estimate:", {
+    itemCount: damageItems.length,
+    vehicle: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+    laborRateTier,
+  });
+
+  // Log items that require part replacement
+  const itemsNeedingParts = damageItems.filter(
+    (item) => item.requires_part_replacement && item.part_name
+  );
+  console.log("[Damage Mapper] Items requiring part replacement:", {
+    count: itemsNeedingParts.length,
+    items: itemsNeedingParts.map((item) => ({
+      location: item.location,
+      part_name: item.part_name,
+      damage_type: item.damage_type,
+      severity: item.severity,
+    })),
+  });
+
   const tierMultiplier = getTierMultiplier(vehicle.make);
   const laborMultiplier = getLaborRateMultiplier(laborRateTier);
 
@@ -141,6 +161,11 @@ export async function buildEstimate(
     let repairDescription = "";
 
     if (item.requires_part_replacement && item.part_name) {
+      console.log("[Damage Mapper] Processing part replacement:", {
+        location: item.location,
+        part_name: item.part_name,
+        vehicle: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      });
       // --- PART REPLACEMENT PATH ---
       // Get parts price (eBay → cache → static fallback)
       const partPrice = await getPartPrice(
@@ -150,6 +175,14 @@ export async function buildEstimate(
         vehicle.model,
         vehicle.trim
       );
+
+      console.log("[Damage Mapper] Part price received:", {
+        part_name: item.part_name,
+        source: partPrice.source,
+        price_low: partPrice.price_low,
+        price_high: partPrice.price_high,
+        price_median: partPrice.price_median,
+      });
 
       pricingSource = partPrice.source;
       partsLow = partPrice.price_low;
@@ -218,5 +251,17 @@ export async function buildEstimate(
     };
   });
 
-  return Promise.all(estimatePromises);
+  const results = await Promise.all(estimatePromises);
+
+  // Log summary
+  const ebayCount = results.filter((r) => r.pricing_source === "ebay").length;
+  const staticCount = results.filter((r) => r.pricing_source === "static").length;
+  console.log("[Damage Mapper] Estimate building complete:", {
+    totalItems: results.length,
+    ebayPriced: ebayCount,
+    staticPriced: staticCount,
+    itemsNeedingParts: itemsNeedingParts.length,
+  });
+
+  return results;
 }
