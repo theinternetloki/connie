@@ -9,44 +9,77 @@ interface InlineVinScannerProps {
   onScan: (vin: string) => void;
 }
 
+const SCANNER_ID = "inline-vin-scanner";
+
 export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const scannerId = useRef(`scanner-${Math.random().toString(36).substr(2, 9)}`);
+  const shouldStartScan = useRef(false);
 
-  const startScan = async () => {
-    try {
-      setError(null);
-      setIsScanning(true);
-
-      const scanner = new Html5Qrcode(scannerId.current);
-      scannerRef.current = scanner;
-
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        (decodedText) => {
-          scanner.stop();
-          scannerRef.current = null;
-          setIsScanning(false);
-          onScan(decodedText);
-        },
-        (errorMessage) => {
-          // Ignore scanning errors, just keep trying
-        }
-      );
-    } catch (err: any) {
-      setError(err.message || "Failed to start camera");
-      setIsScanning(false);
-      scannerRef.current = null;
-    }
+  const startScan = () => {
+    setError(null);
+    setIsScanning(true);
+    shouldStartScan.current = true;
   };
 
+  // Start the scanner after the modal is rendered
+  useEffect(() => {
+    if (!isScanning || !shouldStartScan.current) return;
+
+    const initializeScanner = async () => {
+      try {
+        // Wait for the DOM element to be rendered
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        const element = document.getElementById(SCANNER_ID);
+        if (!element) {
+          throw new Error("Scanner element not found");
+        }
+
+        const scanner = new Html5Qrcode(SCANNER_ID);
+        scannerRef.current = scanner;
+
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            scanner.stop().then(() => {
+              scannerRef.current = null;
+              setIsScanning(false);
+              shouldStartScan.current = false;
+              onScan(decodedText.trim());
+            }).catch(() => {
+              scannerRef.current = null;
+              setIsScanning(false);
+              shouldStartScan.current = false;
+              onScan(decodedText.trim());
+            });
+          },
+          (errorMessage) => {
+            // Ignore scanning errors, just keep trying
+          }
+        );
+      } catch (err: any) {
+        console.error("Scanner error:", err);
+        setError(err.message || "Failed to start camera. Please ensure camera permissions are granted.");
+        setIsScanning(false);
+        shouldStartScan.current = false;
+        if (scannerRef.current) {
+          scannerRef.current.stop().catch(() => {});
+          scannerRef.current = null;
+        }
+      }
+    };
+
+    initializeScanner();
+  }, [isScanning, onScan]);
+
   const stopScan = () => {
+    shouldStartScan.current = false;
     if (scannerRef.current) {
       scannerRef.current
         .stop()
@@ -58,6 +91,8 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
           scannerRef.current = null;
           setIsScanning(false);
         });
+    } else {
+      setIsScanning(false);
     }
   };
 
@@ -85,11 +120,13 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
             </Button>
           </div>
           <div
-            id={scannerId.current}
+            id={SCANNER_ID}
             className="w-full aspect-square bg-black rounded-lg overflow-hidden"
           />
           {error && (
-            <p className="text-sm text-red-500 text-center">{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-700 text-center">{error}</p>
+            </div>
           )}
           <Button onClick={stopScan} variant="outline" className="w-full">
             <X className="mr-2 h-4 w-4" />
@@ -100,10 +137,16 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
     );
   }
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startScan();
+  };
+
   return (
     <Button
       type="button"
-      onClick={startScan}
+      onClick={handleClick}
       variant="outline"
       size="default"
       className="border-gray-300 hover:bg-gray-50 font-medium whitespace-nowrap"
