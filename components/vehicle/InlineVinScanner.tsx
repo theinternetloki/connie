@@ -14,6 +14,8 @@ const SCANNER_ID = "inline-vin-scanner";
 export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualVin, setManualVin] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const shouldStartScan = useRef(false);
 
@@ -48,48 +50,61 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
         // Use larger scanning area for better barcode detection (80% of container)
         const scanAreaSize = Math.min(containerWidth, containerHeight) * 0.8;
 
+        // Try using file-based scanning as fallback, or use simpler config
+        const config = {
+          fps: 10, // Lower FPS might be more stable
+          qrbox: function(viewfinderWidth, viewfinderHeight) {
+            // Use larger scanning area - 90% of viewfinder
+            const minEdgePercentage = 0.9;
+            const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+            const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+            return {
+              width: qrboxSize,
+              height: qrboxSize
+            };
+          },
+          aspectRatio: 1.0,
+          disableFlip: false,
+          rememberLastUsedCamera: true,
+          showTorchButtonIfSupported: true
+        };
+
+        console.log("Starting scanner with config:", config);
+        
         await scanner.start(
           { facingMode: "environment" },
-          {
-            fps: 30, // Higher FPS for better barcode detection
-            qrbox: function(viewfinderWidth, viewfinderHeight) {
-              // Use 80% of the viewfinder for scanning area
-              const minEdgePercentage = 0.8;
-              const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-              const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
-              return {
-                width: qrboxSize,
-                height: qrboxSize
-              };
-            },
-            aspectRatio: 1.0,
-            disableFlip: false // Allow rotation for better detection
-          },
+          config,
           (decodedText) => {
-            // Validate that it looks like a VIN (alphanumeric, typically 17 chars but can be shorter)
+            console.log("Scanner detected:", decodedText);
+            
+            // Clean the scanned text
             const cleanedVin = decodedText.trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+            console.log("Cleaned VIN:", cleanedVin, "Length:", cleanedVin.length);
             
             // Accept VINs that are at least 10 characters (partial VINs) up to 17 characters
-            if (cleanedVin.length >= 10 && cleanedVin.length <= 17 && /^[A-HJ-NPR-Z0-9]+$/.test(cleanedVin)) {
+            // Also accept any alphanumeric string 10+ chars as it might be a VIN
+            if (cleanedVin.length >= 10 && cleanedVin.length <= 17) {
+              console.log("Valid VIN detected, stopping scanner");
               scanner.stop().then(() => {
                 scannerRef.current = null;
                 setIsScanning(false);
                 shouldStartScan.current = false;
                 onScan(cleanedVin);
-              }).catch(() => {
+              }).catch((err) => {
+                console.error("Error stopping scanner:", err);
                 scannerRef.current = null;
                 setIsScanning(false);
                 shouldStartScan.current = false;
                 onScan(cleanedVin);
               });
+            } else {
+              console.log("Scanned text doesn't match VIN format, continuing scan");
             }
-            // If not a valid VIN format, keep scanning silently
           },
           (errorMessage) => {
-            // Ignore scanning errors, just keep trying
-            // Only log if it's not a "not found" error (which is normal while scanning)
+            // Log all errors for debugging
             if (!errorMessage.includes("NotFoundException") && !errorMessage.includes("No MultiFormat Readers")) {
-              console.debug("Scanning...", errorMessage);
+              console.log("Scanner error (non-critical):", errorMessage);
             }
           }
         );
@@ -110,6 +125,8 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
 
   const stopScan = () => {
     shouldStartScan.current = false;
+    setShowManualInput(false);
+    setManualVin("");
     if (scannerRef.current) {
       scannerRef.current
         .stop()
@@ -167,15 +184,69 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
               <p className="text-sm text-red-700 text-center">{error}</p>
             </div>
           )}
-          {!error && (
+          {!error && !showManualInput && (
             <p className="text-sm text-gray-600 text-center">
               Point camera at VIN barcode. Ensure good lighting.
             </p>
           )}
-          <Button onClick={stopScan} variant="outline" className="w-full">
-            <X className="mr-2 h-4 w-4" />
-            Stop Scanning
-          </Button>
+          {showManualInput && (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600 text-center">
+                Having trouble scanning? Enter VIN manually:
+              </p>
+              <input
+                type="text"
+                value={manualVin}
+                onChange={(e) => setManualVin(e.target.value.toUpperCase())}
+                placeholder="Enter 17-character VIN"
+                maxLength={17}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-center text-lg font-mono tracking-wider"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    if (manualVin.length >= 10) {
+                      onScan(manualVin);
+                      setShowManualInput(false);
+                      stopScan();
+                    }
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  disabled={manualVin.length < 10}
+                >
+                  Use VIN
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowManualInput(false);
+                    setManualVin("");
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {!showManualInput && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setShowManualInput(true);
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Enter Manually
+              </Button>
+              <Button onClick={stopScan} variant="outline" className="flex-1">
+                <X className="mr-2 h-4 w-4" />
+                Stop Scanning
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     );
