@@ -66,9 +66,9 @@ export default function VinScanner({ onScan, onClose }: VinScannerProps) {
     const reader = new BrowserMultiFormatReader(hints);
     readerRef.current = reader;
 
-    // Configure timing — how often to attempt a decode.
-    // 200ms = 5 attempts/sec. Lower = more responsive but more CPU.
-    reader.timeBetweenDecodingAttempts = 200;
+    // Note: timeBetweenDecodingAttempts is not directly configurable in @zxing/browser
+    // The library handles timing internally. The decodeFromVideoDevice callback
+    // will be called as frames are processed.
 
     let isMounted = true;
 
