@@ -53,7 +53,7 @@ export function InlineVinScanner({ onScan }: InlineVinScannerProps) {
         // Try using file-based scanning as fallback, or use simpler config
         const config = {
           fps: 10, // Lower FPS might be more stable
-          qrbox: function(viewfinderWidth, viewfinderHeight) {
+          qrbox: function(viewfinderWidth: number, viewfinderHeight: number) {
             // Use larger scanning area - 90% of viewfinder
             const minEdgePercentage = 0.9;
             const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
